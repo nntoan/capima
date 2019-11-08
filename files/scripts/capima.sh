@@ -29,11 +29,11 @@ fi
 
 # CPM user vars
 USER="capima"
-HOMEDIR=$(getent passwd $USER | cut -d ':' -f6)
+HOMEDIR=$(getent passwd $USER | cut -d ':' -f6 | sed 's/\/*$//g')
 WEBAPP_STACK=""
-APPNAME=""
+APPNAME="$$$"
 APPDOMAINS=""
-PUBLICPATH=""
+PUBLICPATH="current"
 PHP_VERSION=""
 WEBAPP_DIR="$HOMEDIR/webapps"
 CAPIMAURL="https://capima.nntoan.com"
@@ -67,37 +67,40 @@ function main {
 
 function CreateNewWebApp {
   # Define the app name
-  read -r -p "${BLUE}Please enter your webapp name (no special chars):${NORMAL} " response
-  case "$response" in
-    *)
-      APPNAME="$response"
-      echo -ne "${YELLOW}Your webapp name set to: $APPNAME"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  while [[ $APPNAME =~ [^a-z0-9] ]] || [[ $APPNAME == '' ]]
+  do
+    read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric):${NORMAL} " APPNAME
+    if [[ -z "$APPNAME" ]]; then
+      echo -ne "${RED}No app name entered.${NORMAL}"
       echo ""
-    ;;
-  esac
+    fi
+  done
+    APPDOMAINS="$APPNAME.test www.$APPNAME.test"
+    echo -ne "${YELLOW}Your webapp name set to: $APPNAME"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
 
   # Define the domains
-  read -r -p "${BLUE}Please enter all the domain names and sub-domain names you would like to use, separated by space:${NORMAL} " response
-  case "$response" in
-    *)
-      APPDOMAINS="$response"
-      echo -ne "${YELLOW}Domain of webapp set to: $APPDOMAINS"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
-    ;;
-  esac
+  read -r -p "${BLUE}Please enter all the domain names and sub-domain names you would like to use, separated by space [$APPDOMAINS]:${NORMAL} " response
+  if [[ -z "$response" ]]; then
+    APPDOMAINS="$APPNAME.test www.$APPNAME.test"
+  else
+    APPDOMAINS="$response"
+  fi
+  echo -ne "${YELLOW}Domain of webapp set to: $APPDOMAINS"
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 
   # Define the public path
-  read -r -p "${BLUE}Please enter the public path of your webapp:${NORMAL} " response
-  case "$response" in
-    *)
-      PUBLICPATH="$response"
-      echo -ne "${YELLOW}The webapp path set to: $WEBAPP_DIR/$APPNAME/$PUBLICPATH"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
-    ;;
-  esac
+  read -r -p "${BLUE}Please enter the public path of your webapp [current]:${NORMAL} " response
+  if [[ -z "$response" ]]; then
+    PUBLICPATH="current"
+  else
+    PUBLICPATH="$response"
+  fi
+  echo -ne "${YELLOW}The webapp path set to: $WEBAPP_DIR/$APPNAME/$PUBLICPATH"
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 
   # Choose a web application stack
   read -r -p "${BLUE}Please choose web application stack (hybrid, nativenginx, customnginx)? [hybrid]${NORMAL} " response
@@ -128,7 +131,6 @@ function CreateNewWebApp {
     7.0)
       PHP_VERSION="php70rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      PHP_EXTRA_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -136,7 +138,6 @@ function CreateNewWebApp {
     7.1)
       PHP_VERSION="php71rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      PHP_EXTRA_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -144,7 +145,6 @@ function CreateNewWebApp {
     7.2)
       PHP_VERSION="php72rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      PHP_EXTRA_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -152,7 +152,6 @@ function CreateNewWebApp {
     7.3|*)
       PHP_VERSION="php73rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      PHP_EXTRA_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -170,6 +169,9 @@ function BootstrapWebApplication {
   if [[ ! -d "$WEBAPP_DIR" ]]; then
     mkdir -p "$WEBAPP_DIR"
   fi
+  if [[ ! -d "$PHP_EXTRA_CONFDIR" ]]; then
+    mkdir -p "$PHP_EXTRA_CONFDIR"
+  fi
   
   mkdir -p "$WEBAPP_DIR/$APPNAME/$PUBLICPATH"
   chown -Rf "$USER":"$USER" "$WEBAPP_DIR/$APPNAME"
@@ -178,16 +180,16 @@ function BootstrapWebApplication {
   mkdir -p $NGINX_CONFDIR/$APPNAME.d
   wget "$CAPIMAURL/templates/nginx/$1/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
-  wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s/HOMEDIR/$HOMEDIR/g;s/PUBLICPATH/$PUBLICPATH/g;" > $NGINX_CONFDIR/$APPNAME.d/main.conf
+  wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/main.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
   
   # Apache
   if [[ "$1" == "hybrid" ]]; then
-    wget "$CAPIMAURL/templates/apache/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s/HOMEDIR/$HOMEDIR/g;s/PUBLICPATH/$PUBLICPATH/g;" > $APACHE_CONFDIR/$APPNAME.conf
+    wget "$CAPIMAURL/templates/apache/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $APACHE_CONFDIR/$APPNAME.conf
   fi
 
   # PHP-FPM
-  wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/HOMEDIR/$HOMEDIR/g;s/USER/$USER/g;" > $PHP_CONFDIR/$APPNAME.conf
+  wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
 
   systemctl restart nginx-rc.service
@@ -279,10 +281,10 @@ function Usage {
       echo
 
       echo "Options:"
-      echo " --help${reset_color}(-h)       Display this help message."
-      echo " --quiet${reset_color}(-q)      Do not output any message."
-      echo " --ansi${reset_color}           Force ANSI output."
-      echo " --no-ansi${reset_color}        Disable ANSI output."
+      echo " --help${NORMAL}(-h)       Display this help message."
+      echo " --quiet${NORMAL}(-q)      Do not output any message."
+      echo " --ansi${NORMAL}           Force ANSI output."
+      echo " --no-ansi${NORMAL}        Disable ANSI output."
 
       echo
 
@@ -294,5 +296,12 @@ function Usage {
     ;;
   esac
 }
+
+# Checker
+if [[ $EUID -ne 0 ]]; then
+    message="Capima must be run as root!"
+    echo ${RED}$message${NORMAL} 1>&2
+    exit 1
+fi
 
 main "$1"
