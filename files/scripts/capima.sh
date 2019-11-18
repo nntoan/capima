@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.0
+# VERSION: 1.0.1
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -41,6 +41,10 @@ PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 PHP_EXTRA_CONFDIR="/etc/php-extra"
 NGINX_CONFDIR="/etc/nginx-rc/conf.d"
 APACHE_CONFDIR="/etc/apache2-rc/conf.d"
+VERSION="1.0.1"
+LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
+readonly SELF=$(basename "$0")
+readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 
 function main {
   case "$1" in
@@ -56,11 +60,17 @@ function main {
     logs)
       TailLogs "$2"
     ;;
+    self-update|selfupdate)
+      UpdateSelfAndInvoke "$@"
+    ;;
     --no-ansi)
-    Usage --no-ansi
+      Usage --no-ansi
+    ;;
+    --version|-v)
+      ShowCurrentVersion
     ;;
     *|help|-h|--help|--ansi)
-    Usage --ansi
+      Usage --ansi
     ;;
   esac
 }
@@ -244,10 +254,58 @@ function TailLogs {
   esac
 }
 
+function ShowCurrentVersion {
+  echo ${GREEN}Capima is running on${NORMAL} ${YELLOW}v${VERSION}${NORMAL}.
+}
+
+function ShowLatestVersion {
+  echo ${GREEN}The latest version of Capima is${NORMAL} ${YELLOW}v${LATEST_VERSION}${NORMAL}.
+}
+
+function VersionCheck {
+  dpkg --compare-versions "$VERSION" "lt" "$LATEST_VERSION"
+  if [[ "$?" -eq 0 ]]; then
+    return 0
+  else
+    return 999
+  fi
+}
+
+function UpdateSelfAndInvoke {
+  ShowCurrentVersion
+  echo "${GREEN}Checking if on latest version...${NORMAL}"
+  VersionCheck
+  if [[ "$?" -eq 0 ]]; then
+    ShowLatestVersion
+
+    # Download new version
+    echo -ne "${GREEN}Downloading latest version...${NORMAL}"
+    if ! wget --quiet --output-document="$0.tmp" "$UPDATE_BASE/$SELF.sh" ; then
+      echo "${RED}Failed: Error while trying to download new version!${NORMAL}"
+      echo "${YELLOW}File requested: $UPDATE_BASE/$SELF.sh${NORMAL}"
+      exit 1
+    fi
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+
+    echo -ne "${GREEN}Performing self-update...${NORMAL}"
+    # Copy over modes from old version
+    OCTAL_MODE=$(stat -c '%a' $0)
+    chmod $OCTAL_MODE $0.tmp
+
+    # Overwrite old file with new
+    mv $0.tmp $0
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL} 🎉🎉🎉"
+    echo ""
+
+    exit 0
+  fi
+}
+
 function Usage {
   case "$1" in
     --ansi)
-      echo "${YELLOW}CAPIMA v1.0.0${NORMAL}"
+      echo "${YELLOW}CAPIMA v${VERSION}${NORMAL}"
 
       echo
 
@@ -257,6 +315,7 @@ function Usage {
       echo
 
       echo "${YELLOW}Options:${NORMAL}"
+      echo ${GREEN} "--version${NORMAL}(-v)    Display current version."
       echo ${GREEN} "--help${NORMAL}(-h)       Display this help message."
       echo ${GREEN} "--quiet${NORMAL}(-q)      Do not output any message."
       echo ${GREEN} "--ansi${NORMAL}           Force ANSI output."
@@ -269,9 +328,10 @@ function Usage {
       echo ${GREEN} "use${NORMAL}              Switch between version of PHP-CLI."
       echo ${GREEN} "restart${NORMAL}          Restart all Capima services."
       echo ${GREEN} "logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
+      echo ${GREEN} "self-update${NORMAL}      Check latest version and performing self-update."
     ;;
     --no-ansi)
-      echo "CAPIMA v1.0.0"
+      echo "CAPIMA v${VERSION}"
 
       echo
 
@@ -281,6 +341,7 @@ function Usage {
       echo
 
       echo "Options:"
+      echo " --version${NORMAL}(-v)    Display current version."
       echo " --help${NORMAL}(-h)       Display this help message."
       echo " --quiet${NORMAL}(-q)      Do not output any message."
       echo " --ansi${NORMAL}           Force ANSI output."
@@ -293,15 +354,16 @@ function Usage {
       echo " use${NORMAL}              Switch between version of PHP-CLI. (7.0, 7.1, 7.2, 7.3)"
       echo " restart${NORMAL}          Restart all Capima services."
       echo " logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
+      echo " self-update${NORMAL}      Check latest version and performing self-update."
     ;;
   esac
 }
 
 # Checker
 if [[ $EUID -ne 0 ]]; then
-    message="Capima must be run as root!"
-    echo ${RED}$message${NORMAL} 1>&2
-    exit 1
+  message="Capima must be run as root!"
+  echo ${RED}$message${NORMAL} 1>&2
+  exit 1
 fi
 
-main "$1"
+main "$@"

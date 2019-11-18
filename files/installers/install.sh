@@ -355,6 +355,8 @@ EOF
 
     wget $CAPIMAURL/files/scripts/capima.sh -O /usr/sbin/capima
     chmod +x /usr/sbin/capima
+
+    echo "capima ALL=(ALL) NOPASSWD:/usr/sbin/capima" | tee -a /etc/sudoers.d/capima
 }
 
 function BootstrapSystemdService {
