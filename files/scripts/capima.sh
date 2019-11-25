@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.1
+# VERSION: 1.0.2
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -27,6 +27,10 @@ else
   NORMAL=""
 fi
 
+# Global issues
+OSNAME=`lsb_release -s -i`
+OSVERSION=`lsb_release -s -r`
+OSCODENAME=`lsb_release -s -c`
 # CPM user vars
 USER="capima"
 HOMEDIR=$(getent passwd $USER | cut -d ':' -f6 | sed 's/\/*$//g')
@@ -38,27 +42,35 @@ PHP_VERSION=""
 WEBAPP_DIR="$HOMEDIR/webapps"
 CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-PHP_EXTRA_CONFDIR="/etc/php-extra"
-NGINX_CONFDIR="/etc/nginx-rc/conf.d"
-APACHE_CONFDIR="/etc/apache2-rc/conf.d"
-VERSION="1.0.1"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
+# Read-only variables
+readonly VERSION="1.0.2"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
+readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
+readonly NGINX_CONFDIR="/etc/nginx-rc/conf.d"
+readonly APACHE_CONFDIR="/etc/apache2-rc/conf.d"
+readonly CAPIMA_LOGFILE="/var/log/capima.log"
 
 function main {
   case "$1" in
-    new)
-      CreateNewWebApp
+    web)
+      WebAppsManagement "$@"
     ;;
     use)
-      SwitchPhpCliVersion "$2"
+      SwitchPhpCliVersion "$@"
+    ;;
+    enable)
+      EnableServices "$@"
     ;;
     restart)
-      RestartAllServices
+      RestartServices "$@"
+    ;;
+    info)
+      GetWebAppInfo "$@"
     ;;
     logs)
-      TailLogs "$2"
+      TailLogs "$@"
     ;;
     self-update|selfupdate)
       UpdateSelfAndInvoke "$@"
@@ -73,6 +85,47 @@ function main {
       Usage --ansi
     ;;
   esac
+}
+
+function WebAppsManagement {
+  Heading
+
+  if [[ -z "$2" ]]; then
+    # Must-choose an option
+    while true; do
+      read -r -p "${BLUE}Please select an action you would like to take [add|update|delete]:${NORMAL} " action
+      case "$action" in
+        exit|q|x) break ;;
+        add|new|a)
+          CreateNewWebApp
+        ;;
+        update|u)
+          UpdateWebApp
+        ;;
+        delete|remove|del|d)
+          DeleteWebApp
+        ;;
+        *)
+          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d) or type 'exit' (q, x) to quit.${NORMAL}"
+        ;;
+      esac
+    done
+  else
+    case "$2" in
+      add)
+        CreateNewWebApp
+      ;;
+      update)
+        UpdateWebApp
+      ;;
+      delete)
+        DeleteWebApp
+      ;;
+      *)
+        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
+      ;;
+    esac
+  fi
 }
 
 function CreateNewWebApp {
@@ -138,37 +191,78 @@ function CreateNewWebApp {
   # Choose PHP version
   read -r -p "${BLUE}Please choose PHP version of your webapp? [7.3]${NORMAL} " response
   case "$response" in
-    7.0)
+    5.5|55)
+      PHP_VERSION="php55rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    5.6|56)
+      PHP_VERSION="php56rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    7.0|70)
       PHP_VERSION="php70rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
       ;;
-    7.1)
+    7.1|71)
       PHP_VERSION="php71rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
       ;;
-    7.2)
+    7.2|72)
       PHP_VERSION="php72rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
       ;;
-    7.3|*)
+    7.3|73|*)
       PHP_VERSION="php73rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
       ;;
   esac
 
+  echo -ne "${YELLOW}PHP version of webapp set to $PHP_VERSION"
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
+
   BootstrapWebApplication "$WEBAPP_STACK"
+  exit
+}
+
+function UpdateWebApp {
+  echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
+}
+
+function DeleteWebApp {
+  # Define the app name
+  while [[ $appname =~ [^a-z0-9] ]] || [[ $appname == '' ]]
+  do
+    read -r -p "${BLUE}Please enter the webapp name you would like to delete:${NORMAL} " appname
+    if [[ -z "$appname" ]]; then
+      echo -ne "${RED}No app name entered.${NORMAL}"
+      echo ""
+    fi
+  done
+
+  echo -ne "${YELLOW}Please wait, we are removing your web application...${NORMAL}"
+  rm -rf $WEBAPP_DIR/$appname
+  rm -rf $NGINX_CONFDIR/$appname.conf
+  rm -rf $NGINX_CONFDIR/$appname.d
+  rm -rf $APACHE_CONFDIR/$appname.conf
+  rm -rf $PHP_CONFDIR/$appname.conf
+  rm -rf $PHP_EXTRA_CONFDIR/$appname.conf
+  sed -i "/$appname/d" $CAPIMA_LOGFILE
+
+  systemctl restart nginx-rc.service
+  systemctl restart apache2-rc.service
+  if [[ "$OSCODENAME" == 'xenial' ]]; then
+    systemctl restart php55rc-fpm.service
+    systemctl restart php56rc-fpm.service
+  fi
+  systemctl restart php70rc-fpm.service
+  systemctl restart php71rc-fpm.service
+  systemctl restart php72rc-fpm.service
+  systemctl restart php73rc-fpm.service
+  echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
+
+  exit
 }
 
 function BootstrapWebApplication {
@@ -186,21 +280,33 @@ function BootstrapWebApplication {
   mkdir -p "$WEBAPP_DIR/$APPNAME/$PUBLICPATH"
   chown -Rf "$USER":"$USER" "$WEBAPP_DIR/$APPNAME"
 
+  # Writing to logfile
+  echo -ne "$APPNAME:" >> $CAPIMA_LOGFILE
+  echo -ne "$APPDOMAINS:" >> $CAPIMA_LOGFILE
+  echo -ne "$PHP_VERSION:" >> $CAPIMA_LOGFILE
+  echo -ne "$PUBLICPATH:" >> $CAPIMA_LOGFILE
+  echo -ne "$WEBAPP_DIR/$APPNAME:" >> $CAPIMA_LOGFILE
+
   # Nginx
   mkdir -p $NGINX_CONFDIR/$APPNAME.d
   wget "$CAPIMAURL/templates/nginx/$1/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/main.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
+  echo -ne "$NGINX_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
+  echo -ne "$NGINX_CONFDIR/$APPNAME.d:" >> $CAPIMA_LOGFILE
   
   # Apache
   if [[ "$1" == "hybrid" ]]; then
     wget "$CAPIMAURL/templates/apache/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $APACHE_CONFDIR/$APPNAME.conf
+    echo -ne "$APACHE_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   fi
 
   # PHP-FPM
   wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
+  echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
+  echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
 
   systemctl restart nginx-rc.service
   systemctl restart apache2-rc.service
@@ -212,6 +318,12 @@ function BootstrapWebApplication {
 
 function SwitchPhpCliVersion {
   case "$1" in
+    5.5|55)
+      ln -sf /RunCloud/Packages/php55rc/bin/php /usr/bin/php
+    ;;
+    5.6|56)
+      ln -sf /RunCloud/Packages/php56rc/bin/php /usr/bin/php
+    ;;
     7.0|70)
       ln -sf /RunCloud/Packages/php70rc/bin/php /usr/bin/php
     ;;
@@ -231,13 +343,89 @@ function SwitchPhpCliVersion {
   echo ""
 }
 
-function RestartAllServices {
-  systemctl restart nginx-rc.service
-  systemctl restart apache2-rc.service
-  systemctl restart php70rc-fpm.service
-  systemctl restart php71rc-fpm.service
-  systemctl restart php72rc-fpm.service
-  systemctl restart php73rc-fpm.service
+function EnableServices {
+  case "$1" in
+    elasticsearch)
+      systemctl enable elasticsearch.service
+      systemctl restart elasticsearch.service
+    ;;
+    redis)
+      systemctl enable redis-server.service
+      systemctl restart redis-server.service
+    ;;
+    *)
+      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis."
+    ;;
+  esac
+}
+
+function RestartServices {
+  case "$1" in
+    nginx)
+      systemctl restart nginx-rc.service
+    ;;
+    apache)
+      systemctl restart apache2-rc.service
+    ;;
+    php)
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        systemctl restart php55rc-fpm.service
+        systemctl restart php56rc-fpm.service
+      fi
+      systemctl restart php70rc-fpm.service
+      systemctl restart php71rc-fpm.service
+      systemctl restart php72rc-fpm.service
+      systemctl restart php73rc-fpm.service
+    ;;
+    elastic)
+      systemctl restart elasticsearch.service
+    ;;
+    redis)
+      systemctl restart redis-server.service
+    ;;
+    mailhog)
+      systemctl restart mailhog.service
+    ;;
+    *|all|--all|-a)
+      systemctl restart nginx-rc.service
+      systemctl restart apache2-rc.service
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        systemctl restart php55rc-fpm.service
+        systemctl restart php56rc-fpm.service
+      fi
+      systemctl restart php70rc-fpm.service
+      systemctl restart php71rc-fpm.service
+      systemctl restart php72rc-fpm.service
+      systemctl restart php73rc-fpm.service
+      systemctl restart elasticsearch.service
+      systemctl restart redis-server.service
+      systemctl restart mailhog.service
+    ;;
+  esac
+}
+
+function GetListAllWebApps {
+  echo $(ls -1 ${PHP_EXTRA_CONFDIR} | sed -e 's/\..*$//')
+}
+
+function GetWebAppInfo {
+  current_dir=$(pwd)
+  all_webapps=$(ls -1 ${PHP_EXTRA_CONFDIR} | sed -e 's/\..*$//')
+  available_apps=(${all_webapps// /})
+
+  # Run automatically check
+  if [[ -z "$2" ]]; then
+    for i in "${!available_apps[@]}"
+    do
+      if [[ "$current_dir" == *"${available_apps[i]}"* ]]; then
+        echo "${BLUE}Your webapp name is: ${available_apps[i]}${NORMAL}"
+        echo "${BLUE}Your nginx config path is located at: $NGINX_CONFDIR/${available_apps[i]}.conf${NORMAL}"
+        echo "${BLUE}Your PHP version of webapp is: ${available_apps[i]}${NORMAL}"
+      fi
+    done
+  else
+    echo "${RED}Sorry, we unable to detect your webapps. Please change directory to your webapp then try again.${NORMAL}"
+  fi
 }
 
 function TailLogs {
@@ -251,6 +439,7 @@ function TailLogs {
     fpm)
       tail -f $HOMEDIR/logs/fpm/*.log -n200
       ;;
+    
   esac
 }
 
@@ -300,6 +489,30 @@ function UpdateSelfAndInvoke {
 
     exit 0
   fi
+}
+
+function Heading {
+  echo "${BLUE}
+
+ .d8888b.                    d8b                        
+d88P  Y88b                   Y8P                        
+888    888                                              
+888         8888b.  88888b.  888 88888b.d88b.   8888b.  
+888            \"88b 888 \"88b 888 888 \"888 \"88b     \"88b 
+888    888 .d888888 888  888 888 888  888  888 .d888888 
+Y88b  d88P 888  888 888 d88P 888 888  888  888 888  888 
+ \"Y8888P\"  \"Y888888 88888P\"  888 888  888  888 \"Y888888 
+                    888                                 
+                    888                                 
+                    888                                 
+
+
+- Do not use \"root\" user to create/modify any web app files
+- Do not edit any config commented with \"Do not edit\"
+
+Made with ♥ by Toan Nguyen (v${VERSION})
+
+${NORMAL}"
 }
 
 function Usage {

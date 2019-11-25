@@ -11,7 +11,7 @@ OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
 SUPPORTEDVERSION="16.04 18.04"
 PHPCLIVERSION="php73rc"
-INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools python-pip perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make "
+INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools python-pip perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make golang-go "
 
 function ReplaceWholeLine {
     sed -i "s/$1.*/$2/" $3
@@ -21,7 +21,7 @@ function ReplaceTrueWholeLine {
     sed -i "s/.*$1.*/$2/" $3
 }
 
-function checkServiceInstalled {
+function CheckServiceInstalled {
     if rpm -qa | grep -q $1; then
         return 1
     else
@@ -59,7 +59,7 @@ function BootstrapServer {
 function BootstrapInstaller {
     rm -f /etc/apt/apt.conf.d/50unattended-upgrades.ucf-dist
 
-    apt-get install software-properties-common apt-transport-https -y
+    apt-get install software-properties-common apt-transport-https default-jre -y
 
     # Install Key
     # RunCloud
@@ -70,20 +70,27 @@ function BootstrapInstaller {
     # Install RunCloud Source List
     echo "deb [arch=amd64] https://release.runcloud.io/ $OSCODENAME main" > /etc/apt/sources.list.d/runcloud.list
 
+    # Install ElasticSearch Source List
+    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+
     # LTS version nodejs
     curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
         add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
         add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
+        echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
 
         INSTALLPACKAGE+="php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials"
     elif [[ "$OSCODENAME" == 'bionic' ]]; then
         add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu bionic main'
         add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu bionic main'
+        echo "deb https://artifacts.elastic.co/packages/6.x/apt stable main" > /etc/apt/sources.list.d/elastic-6.x.list
 
         INSTALLPACKAGE+="php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials"
     fi
+
+    INSTALLPACKAGE+="elasticsearch"
 
     # APT PINNING
     echo "Package: *
@@ -250,6 +257,56 @@ password=$ROOTPASS
     chmod 600 /etc/mysql/conf.d/root.cnf
 }
 
+function BootstrapMailHog {
+    mkdir -p /opt/Go/src
+
+    source /etc/profile.d/capimapath.sh
+
+    go get github.com/mailhog/MailHog
+    go get github.com/mailhog/mhsendmail
+
+    ln -s $GOPATH/bin/MailHog /usr/local/bin/MailHog
+    ln -s $GOPATH/bin/mhsendmail /usr/local/bin/mhsendmail
+
+    if [[ "$OSCODENAME" == 'xenial' ]]; then
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php55rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php56rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
+      systemctl restart php55rc-fpm.service
+      systemctl restart php56rc-fpm.service
+      systemctl restart php70rc-fpm.service
+      systemctl restart php71rc-fpm.service
+      systemctl restart php72rc-fpm.service
+      systemctl restart php73rc-fpm.service
+    elif [[ "$OSCODENAME" == 'bionic' ]]; then
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
+      systemctl restart php70rc-fpm.service
+      systemctl restart php71rc-fpm.service
+      systemctl restart php72rc-fpm.service
+      systemctl restart php73rc-fpm.service
+    fi
+
+    echo "[Unit]
+Description=MailHog Service
+After=network.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127.0.0.1:8025 -smtp-bind-addr 127.0.0.1:1025 > /dev/null 2>&1 &
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
+
+  systemctl enable mailhog.service
+  systemctl restart mailhog.service
+}
+
 function BootstrapWebApplication {
     USER="capima"
     CAPIMAPASSWORD=$(RandomString)
@@ -334,8 +391,9 @@ function InstallComposer {
 }
 
 function RegisterPathAndTweak {
-    echo "#!/bin/sh
+    echo "#!/usr/bin/env bash
 export PATH=/RunCloud/Packages/apache2-rc/bin:\$PATH" > /etc/profile.d/capimapath.sh
+    echo "export GOPATH=/opt/Go/src" >> /etc/profile.d/capimapath.sh
 
     echo fs.inotify.max_user_watches=524288 | tee -a /etc/sysctl.conf && sysctl -p
     echo net.core.somaxconn = 65536 | tee -a /etc/sysctl.conf && sysctl -p
@@ -356,7 +414,12 @@ EOF
     wget $CAPIMAURL/files/scripts/capima.sh -O /usr/sbin/capima
     chmod +x /usr/sbin/capima
 
-    echo "capima ALL=(ALL) NOPASSWD:/usr/sbin/capima" | tee -a /etc/sudoers.d/capima
+    # No password while sudo
+    echo "$USER ALL=(ALL) NOPASSWD:/usr/sbin/capima" > /etc/sudoers.d/$USER
+
+    # Copy .my.cnf over
+    cp /etc/mysql/conf.d/root.cnf $HOMEDIR/.my.cnf
+    chown $USER:$USER $HOMEDIR/.my.cnf
 }
 
 function BootstrapSystemdService {
@@ -366,6 +429,9 @@ function BootstrapSystemdService {
 
     systemctl disable redis-server
     systemctl stop redis-server
+
+    systemctl disable elasticsearch.service
+    systemctl stop elasticsearch.service
 
     systemctl disable memcached
     systemctl stop memcached
@@ -391,8 +457,8 @@ function BootstrapSystemdService {
     systemctl enable nginx-rc.service
     systemctl restart nginx-rc.service
 
-    systemctl enable redis-server.service
-    systemctl restart redis-server.service
+    systemctl enable apache2-rc.service
+    systemctl restart apache2-rc.service
 
 }
 
@@ -476,6 +542,10 @@ InstallComposer
 # Tweak
 sleep 2
 RegisterPathAndTweak
+
+# MailHog Service
+sleep 2
+BootstrapMailHog
 
 # Systemd Service
 sleep 2

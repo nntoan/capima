@@ -34,5 +34,24 @@ sh -c "$(wget https://raw.githubusercontent.com/nntoan/capima/master/files/insta
 ## Usage
 
 ```bash
-capima
+$ capima
+
+CAPIMA v1.0.2
+
+Usage:
+ capima [commands] [options]
+
+Options:
+ --version(-v)    Display current version.
+ --help(-h)       Display this help message.
+ --quiet(-q)      Do not output any message.
+ --ansi           Force ANSI output.
+ --no-ansi        Disable ANSI output.
+
+Available commands:
+ new              Create new webapp in Capima.
+ use              Switch between version of PHP-CLI.
+ restart          Restart all Capima services.
+ logs             Tail the last 200 lines of logfile (apache,fpm,nginx).
+ self-update      Check latest version and performing self-update.
 ```
