@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.3
+# VERSION: 1.0.4
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -44,7 +44,7 @@ CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.3"
+readonly VERSION="1.0.4"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -130,7 +130,7 @@ function WebAppsManagement {
 
 function CreateNewWebApp {
   # Define the app name
-  while [[ $APPNAME =~ [^a-z0-9-_] ]] || [[ $APPNAME == '' ]]
+  while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
   do
     read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric):${NORMAL} " APPNAME
     if [[ -z "$APPNAME" ]]; then
@@ -307,6 +307,7 @@ function BootstrapWebApplication {
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
   echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
+  echo "" >> $CAPIMA_LOGFILE
 
   systemctl restart nginx-rc.service
   systemctl restart apache2-rc.service
@@ -350,8 +351,8 @@ function EnableServices {
       systemctl restart elasticsearch.service
     ;;
     redis)
-      systemctl enable redis-server.service
-      systemctl restart redis-server.service
+      systemctl enable redis-server
+      systemctl restart redis-server
     ;;
     *)
       echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis."
@@ -438,7 +439,9 @@ function TailLogs {
     fpm)
       tail -f $HOMEDIR/logs/fpm/*.log -n200
       ;;
-    
+    all|*)
+      tail -f $HOMEDIR/logs/nginx/*.log $HOMEDIR/logs/apache2/*.log $HOMEDIR/logs/fpm/*.log -n200
+      ;;
   esac
 }
 

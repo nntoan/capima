@@ -90,7 +90,7 @@ function BootstrapInstaller {
         INSTALLPACKAGE+="php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials "
     fi
 
-    INSTALLPACKAGE+="elasticsearch"
+    INSTALLPACKAGE+="elasticsearch "
 
     # APT PINNING
     echo "Package: *

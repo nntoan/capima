@@ -2,6 +2,8 @@
 
 Capima is a modern/minimal web server CLI tool designed to help you manage your PHP web application and websites.
 
+> Installing, configuring and optimizing your web server has never been so easy.
+
 # Getting Started
 
 ## Requirements
@@ -23,20 +25,22 @@ Hardware requirement
 
 via curl
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/nntoan/capima/master/files/installers/install.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/nntoan/capima/master/files/installers/install.sh)"
 ```
 
 via wget
 ```bash
-sh -c "$(wget https://raw.githubusercontent.com/nntoan/capima/master/files/installers/install.sh -O -)"
+sudo bash -c "$(wget https://raw.githubusercontent.com/nntoan/capima/master/files/installers/install.sh -O -)"
 ```
 
 ## Usage
 
-```bash
-$ capima
+After installed, you are able to manage your webservers by the following command.
 
-CAPIMA v1.0.2
+```bash
+$ sudo capima
+
+CAPIMA v0.0.0
 
 Usage:
  capima [commands] [options]
@@ -49,9 +53,24 @@ Options:
  --no-ansi        Disable ANSI output.
 
 Available commands:
- new              Create new webapp in Capima.
+ web              Webapps management panel (add/update/delete).
  use              Switch between version of PHP-CLI.
- restart          Restart all Capima services.
+ restart          Restart Capima services.
+ info             Show webapps information (under development).
  logs             Tail the last 200 lines of logfile (apache,fpm,nginx).
  self-update      Check latest version and performing self-update.
 ```
+
+## List of commands
+
+Quick guide of commands available in Capima for configuration and adjustment of this application.
+
+### WEB
+
+Manage your websites, create, delete, disable your sites, enable SSL for any of your sites.
+
+```
+sudo capima web add
+```
+
+You will enter the interactive mode like the following screenshots
