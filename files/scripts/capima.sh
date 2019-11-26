@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.2
+# VERSION: 1.0.3
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -44,7 +44,7 @@ CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.2"
+readonly VERSION="1.0.3"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -130,7 +130,7 @@ function WebAppsManagement {
 
 function CreateNewWebApp {
   # Define the app name
-  while [[ $APPNAME =~ [^a-z0-9] ]] || [[ $APPNAME == '' ]]
+  while [[ $APPNAME =~ [^a-z0-9-_] ]] || [[ $APPNAME == '' ]]
   do
     read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric):${NORMAL} " APPNAME
     if [[ -z "$APPNAME" ]]; then
@@ -420,7 +420,6 @@ function GetWebAppInfo {
       if [[ "$current_dir" == *"${available_apps[i]}"* ]]; then
         echo "${BLUE}Your webapp name is: ${available_apps[i]}${NORMAL}"
         echo "${BLUE}Your nginx config path is located at: $NGINX_CONFDIR/${available_apps[i]}.conf${NORMAL}"
-        echo "${BLUE}Your PHP version of webapp is: ${available_apps[i]}${NORMAL}"
       fi
     done
   else
@@ -537,9 +536,10 @@ function Usage {
       echo
 
       echo "${YELLOW}Available commands:${NORMAL}"
-      echo ${GREEN} "new${NORMAL}              Create new webapp in Capima."
+      echo ${GREEN} "web${NORMAL}              Webapps management panel (add/update/delete)."
       echo ${GREEN} "use${NORMAL}              Switch between version of PHP-CLI."
-      echo ${GREEN} "restart${NORMAL}          Restart all Capima services."
+      echo ${GREEN} "restart${NORMAL}          Restart Capima services."
+      echo ${GREEN} "info${NORMAL}             Show webapps information (under development)."
       echo ${GREEN} "logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
       echo ${GREEN} "self-update${NORMAL}      Check latest version and performing self-update."
     ;;
@@ -563,9 +563,10 @@ function Usage {
       echo
 
       echo "Available commands:"
-      echo " new${NORMAL}              Create new webapp in Capima."
+      echo " web${NORMAL}              Webapps management panel (add/update/delete)."
       echo " use${NORMAL}              Switch between version of PHP-CLI. (7.0, 7.1, 7.2, 7.3)"
-      echo " restart${NORMAL}          Restart all Capima services."
+      echo " restart${NORMAL}          Restart Capima services."
+      echo " info${NORMAL}             Show webapps information (under development)."
       echo " logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
       echo " self-update${NORMAL}      Check latest version and performing self-update."
     ;;
