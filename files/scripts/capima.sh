@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.4
+# VERSION: 1.0.5
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -44,7 +44,7 @@ CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.4"
+readonly VERSION="1.0.5"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -318,7 +318,7 @@ function BootstrapWebApplication {
 }
 
 function SwitchPhpCliVersion {
-  case "$1" in
+  case "$2" in
     5.5|55)
       ln -sf /RunCloud/Packages/php55rc/bin/php /usr/bin/php
     ;;
@@ -339,13 +339,13 @@ function SwitchPhpCliVersion {
     ;;
   esac
 
-  echo -ne "${YELLOW}PHP-CLI version set to: $1."
+  echo -ne "${YELLOW}PHP-CLI version set to: $2."
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
 
 function EnableServices {
-  case "$1" in
+  case "$2" in
     elasticsearch)
       systemctl enable elasticsearch.service
       systemctl restart elasticsearch.service
@@ -355,13 +355,13 @@ function EnableServices {
       systemctl restart redis-server
     ;;
     *)
-      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis."
+      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis.${NORMAL}"
     ;;
   esac
 }
 
 function RestartServices {
-  case "$1" in
+  case "$2" in
     nginx)
       systemctl restart nginx-rc.service
     ;;
