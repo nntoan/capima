@@ -44,7 +44,7 @@ CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.5"
+readonly VERSION="1.0.6"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -168,12 +168,6 @@ function CreateNewWebApp {
   # Choose a web application stack
   read -r -p "${BLUE}Please choose web application stack (hybrid, nativenginx, customnginx)? [hybrid]${NORMAL} " response
   case "$response" in
-    hybrid|*)
-      WEBAPP_STACK="hybrid"
-      echo -ne "${YELLOW}NGINX + Apache2 Hybrid (You will be able to use .htaccess)"
-      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-      echo ""
-      ;;
     nativenginx)
       WEBAPP_STACK="nativenginx"
       echo -ne "${YELLOW}Native NGINX (You won't be able to use .htaccess but it is faster)"
@@ -183,6 +177,12 @@ function CreateNewWebApp {
     customnginx)
       WEBAPP_STACK="customnginx"
       echo -ne "${YELLOW}Native NGINX + Custom config (For power user. Manual Nginx implementation)"
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+    hybrid|*)
+      WEBAPP_STACK="hybrid"
+      echo -ne "${YELLOW}NGINX + Apache2 Hybrid (You will be able to use .htaccess)"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       ;;
