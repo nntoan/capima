@@ -74,7 +74,7 @@ function BootstrapInstaller {
     wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
 
     # LTS version nodejs
-    curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+    curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
         add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
