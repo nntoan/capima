@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.5
+# VERSION: 1.0.7
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -37,14 +37,21 @@ HOMEDIR=$(getent passwd $USER | cut -d ':' -f6 | sed 's/\/*$//g')
 WEBAPP_STACK=""
 APPNAME="$$$"
 APPDOMAINS=""
+APPDOMAINS_CRT=""
 PUBLICPATH="current"
 PHP_VERSION=""
 WEBAPP_DIR="$HOMEDIR/webapps"
+CERTDIR="/opt/Capima/certificates"
+SECURED_WEBAPP="X"
 CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
+SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
+SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
+SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.6"
+readonly VERSION="1.0.7"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -150,6 +157,7 @@ function CreateNewWebApp {
   else
     APPDOMAINS="$response"
   fi
+  APPDOMAINS_CRT=(${APPDOMAINS// /})
   echo -ne "${YELLOW}Domain of webapp set to: $APPDOMAINS"
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
@@ -183,6 +191,37 @@ function CreateNewWebApp {
     hybrid|*)
       WEBAPP_STACK="hybrid"
       echo -ne "${YELLOW}NGINX + Apache2 Hybrid (You will be able to use .htaccess)"
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+  esac
+
+  # Enable SSL or webapp
+  read -r -p "${BLUE}Do you want to enable SSL for your webapp (default is Yes)? [Y/N]${NORMAL} " response
+  case "$response" in
+    [nN][oO]|[nN])
+      SECURED_WEBAPP="N"
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+      echo ""
+      ;;
+    [yY][eE][sS]|[yY]|*)
+      SECURED_WEBAPP="Y"
+      echo -ne "${YELLOW}Configuring SSL certificates..."
+      if [[ ! -d "$CERTDIR/$APPNAME" ]]; then
+        mkdir -p "$CERTDIR/$APPNAME"
+      fi
+      SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
+      SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
+      SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
+      SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
+
+      # Downloading config file
+      wget "$CAPIMAURL/templates/openssl/openssl.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $SECURED_CONFFILE
+
+      openssl genrsa -out $SECURED_KEYFILE 4096
+      openssl req -new -key $SECURED_KEYFILE -out $SECURED_CSRFILE -subj "/C=/ST=/O=/localityName=/commonName=*.${APPDOMAINS_CRT[0]}/organizationalUnitName=/emailAddress=/" -config $SECURED_CONFFILE -passin pass:
+      openssl x509 -req -days 3650 -in $SECURED_CSRFILE -signkey $SECURED_KEYFILE -out $SECURED_CRTFILE -extensions v3_req -extfile $SECURED_CONFFILE
+
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       ;;
@@ -241,12 +280,13 @@ function DeleteWebApp {
   done
 
   echo -ne "${YELLOW}Please wait, we are removing your web application...${NORMAL}"
-  rm -rf $WEBAPP_DIR/$appname
-  rm -rf $NGINX_CONFDIR/$appname.conf
-  rm -rf $NGINX_CONFDIR/$appname.d
-  rm -rf $APACHE_CONFDIR/$appname.conf
-  rm -rf $PHP_CONFDIR/$appname.conf
-  rm -rf $PHP_EXTRA_CONFDIR/$appname.conf
+  rm -rf $WEBAPP_DIR/$appname 2>&1
+  rm -rf $NGINX_CONFDIR/$appname.conf 2>&1
+  rm -rf $NGINX_CONFDIR/$appname.ssl.conf 2>&1
+  rm -rf $NGINX_CONFDIR/$appname.d 2>&1
+  rm -rf $APACHE_CONFDIR/$appname.conf 2>&1
+  rm -rf $PHP_CONFDIR/$appname.conf 2>&1
+  rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
   sed -i "/$appname/d" $CAPIMA_LOGFILE
 
   systemctl restart nginx-rc.service
@@ -290,6 +330,11 @@ function BootstrapWebApplication {
   # Nginx
   mkdir -p $NGINX_CONFDIR/$APPNAME.d
   wget "$CAPIMAURL/templates/nginx/$1/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.conf
+  if [[ "$SECURED_WEBAPP" == "Y" ]]; then
+    if [[ -f "$SECURED_KEYFILE" ]]; then
+      wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
+    fi
+  fi
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/main.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
@@ -429,7 +474,7 @@ function GetWebAppInfo {
 }
 
 function TailLogs {
-  case "$1" in
+  case "$2" in
     nginx)
       tail -f $HOMEDIR/logs/nginx/*.log -n200
       ;;
