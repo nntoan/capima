@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.9
+# VERSION: 1.1.0
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -51,7 +51,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.9"
+readonly VERSION="1.1.0"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -270,7 +270,7 @@ function UpdateWebApp {
 
 function DeleteWebApp {
   # Define the app name
-  while [[ $appname =~ [^a-z0-9] ]] || [[ $appname == '' ]]
+  while [[ $appname =~ [^-a-z0-9] ]] || [[ $appname == '' ]]
   do
     read -r -p "${BLUE}Please enter the webapp name you would like to delete:${NORMAL} " appname
     if [[ -z "$appname" ]]; then
