@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.0.7
+# VERSION: 1.0.8
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -51,7 +51,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.0.7"
+readonly VERSION="1.0.8"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -216,10 +216,10 @@ function CreateNewWebApp {
       SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 
       # Downloading config file
-      wget "$CAPIMAURL/templates/openssl/openssl.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $SECURED_CONFFILE
+      wget "$CAPIMAURL/templates/openssl/openssl.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[1]}/g" > $SECURED_CONFFILE
 
       openssl genrsa -out $SECURED_KEYFILE 4096
-      openssl req -new -key $SECURED_KEYFILE -out $SECURED_CSRFILE -subj "/C=/ST=/O=/localityName=/commonName=*.${APPDOMAINS_CRT[0]}/organizationalUnitName=/emailAddress=/" -config $SECURED_CONFFILE -passin pass:
+      openssl req -new -key $SECURED_KEYFILE -out $SECURED_CSRFILE -subj "/C=/ST=/O=/localityName=/commonName=*.${APPDOMAINS_CRT[1]}/organizationalUnitName=/emailAddress=/" -config $SECURED_CONFFILE -passin pass:
       openssl x509 -req -days 3650 -in $SECURED_CSRFILE -signkey $SECURED_KEYFILE -out $SECURED_CRTFILE -extensions v3_req -extfile $SECURED_CONFFILE
 
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
