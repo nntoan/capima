@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.0
+# VERSION: 1.1.1
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -51,7 +51,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.0"
+readonly VERSION="1.1.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -174,11 +174,17 @@ function CreateNewWebApp {
   echo ""
 
   # Choose a web application stack
-  read -r -p "${BLUE}Please choose web application stack (hybrid, nativenginx, customnginx)? [hybrid]${NORMAL} " response
+  read -r -p "${BLUE}Please choose web application stack (hybrid, nativenginx, magenx, customnginx)? [hybrid]${NORMAL} " response
   case "$response" in
     nativenginx)
       WEBAPP_STACK="nativenginx"
       echo -ne "${YELLOW}Native NGINX (You won't be able to use .htaccess but it is faster)"
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+    magenx)
+      WEBAPP_STACK="magenx"
+      echo -ne "${YELLOW}Magento 2 NGINX (Pre-configured for every Magento 2 application)"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       ;;
@@ -287,6 +293,7 @@ function DeleteWebApp {
   rm -rf $APACHE_CONFDIR/$appname.conf 2>&1
   rm -rf $PHP_CONFDIR/$appname.conf 2>&1
   rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
+  rm -rf $CERTDIR/$appname 2>&1
   sed -i "/$appname/d" $CAPIMA_LOGFILE
 
   systemctl restart nginx-rc.service
@@ -335,7 +342,11 @@ function BootstrapWebApplication {
       wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
     fi
   fi
-  wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+  if [[ "$1" == "magenx" ]]; then
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+  else
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+  fi
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/main.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
   echo -ne "$NGINX_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
@@ -448,6 +459,15 @@ function RestartServices {
       systemctl restart mailhog.service
     ;;
   esac
+
+  if [[ "$?" -eq 0 ]]; then
+    echo -ne "${BLUE}$2 service(s) has been restarted successfully."
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  else
+    echo -ne "${RED}Something went wrong, please check the logs with journalctl -xe for more information.${NORMAL}"
+    echo ""
+  fi
 }
 
 function GetListAllWebApps {

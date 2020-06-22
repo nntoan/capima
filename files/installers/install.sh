@@ -310,6 +310,7 @@ function BootstrapWebApplication {
     USER="capima"
     CAPIMAPASSWORD=$(RandomString)
     HOMEDIR="/srv/users/$USER/"
+    MNTWEB="/mnt/web/production/"
     groupadd users-cpm
     mkdir -p "/srv/users"
     adduser --disabled-password --gecos "" --home $HOMEDIR $USER
@@ -318,6 +319,7 @@ function BootstrapWebApplication {
     echo "$USER:$CAPIMAPASSWORD" | chpasswd
     chmod 755 /srv/users
     mkdir -p $HOMEDIR/logs/{nginx,apache2,fpm}
+    mkdir -p $MNTWEB
 
     # FACL
     setfacl -m g:users-cpm:x /srv/users
