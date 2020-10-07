@@ -10,8 +10,13 @@ OSNAME=`lsb_release -s -i`
 OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
 SUPPORTEDVERSION="16.04 18.04"
-PHPCLIVERSION="php73rc"
-INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools python-pip perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make golang-go "
+PHPCLIVERSION="php74rc"
+INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go "
+
+# Services detection
+SERVICES=$(systemctl --type=service --state=active | grep -E '\.service' | cut -d ' ' -f1 | sed -r 's/.{8}$//' | tr '\n' ' ')
+DETECTEDSERVICESCOUNT=0
+DETECTEDSERVICESNAME=""
 
 function ReplaceWholeLine {
     sed -i "s/$1.*/$2/" $3
@@ -59,7 +64,7 @@ function BootstrapServer {
 function BootstrapInstaller {
     rm -f /etc/apt/apt.conf.d/50unattended-upgrades.ucf-dist
 
-    apt-get install software-properties-common apt-transport-https default-jre -y
+    apt-get install software-properties-common apt-transport-https -y
 
     # Install Key
     # RunCloud
@@ -75,21 +80,30 @@ function BootstrapInstaller {
     echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
 
     # LTS version nodejs
-    curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu xenial main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu xenial main'
 
-        INSTALLPACKAGE+="php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials "
+        PIPEXEC="pip"
+
+        INSTALLPACKAGE+="python-pip php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
     elif [[ "$OSCODENAME" == 'bionic' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu bionic main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu bionic main'
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu bionic main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu bionic main'
 
-        INSTALLPACKAGE+="php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials "
+        PIPEXEC="pip"
+
+        INSTALLPACKAGE+="python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
+    elif [[ "$OSCODENAME" == 'focal' ]]; then
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu focal main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu focal main'
+
+        PIPEXEC="pip"
+
+        INSTALLPACKAGE+="python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials dirmngr gnupg libmagic-dev"
     fi
-
-    INSTALLPACKAGE+="elasticsearch "
 
     # APT PINNING
     echo "Package: *
@@ -125,9 +139,29 @@ function InstallPackage {
     apt-get install $INSTALLPACKAGE -y
 }
 
+function CheckingRemoteAccessible {
+    echo -ne "\n\n\nChecking if $CAPIMAURL is accessible...\n"
+
+    # send command to check wait 2 seconds inside jobs before trying
+    timeout 15 bash -c "curl -4 -I --silent $CAPIMAURL | grep 'HTTP/2 200' &>/dev/null"
+    status="$?"
+    if [[ "$status" -ne 0 ]]; then
+        clear
+echo -ne "\n
+##################################################
+# Unable to connect to Capima server from this   #
+# Please take a coffee or take a nap and rerun   #
+# the installation script again!                 #
+##################################################
+\n\n\n
+"
+        exit 1
+    fi
+}
+
 function BootstrapSupervisor {
     export LC_ALL=C
-    pip install supervisor
+    $PIPEXEC install supervisor
     echo_supervisord_conf > /etc/supervisord.conf
     echo -ne "\n\n\n[include]\nfiles=/etc/supervisor.d/*.conf\n\n" >> /etc/supervisord.conf
     mkdir -p /etc/supervisor.d
@@ -285,6 +319,7 @@ function BootstrapMailHog {
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php74rc/conf.d/z-mailhog.ini
       systemctl restart php70rc-fpm.service
       systemctl restart php71rc-fpm.service
       systemctl restart php72rc-fpm.service
@@ -497,6 +532,63 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# existing services checker
+
+if [[ $SERVICES == *"nginx"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" Nginx"
+fi
+
+if [[ $SERVICES == *"apache2"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" Apache"
+fi
+
+if [[ $SERVICES == *"lshttpd"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" LiteSpeed"
+fi
+
+if [[ $SERVICES == *"mysql"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" MySQL"
+fi
+
+if [[ $SERVICES == *"mariadb"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" MariaDB"
+fi
+
+if [[ $SERVICES == *"php"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" PHP"
+fi
+
+if [[ $SERVICES == *"webmin"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" Webmin"
+fi
+
+if [[ $SERVICES == *"lscpd"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" CyberPanel"
+fi
+
+if [[ $SERVICES == *"psa"* ]]; then
+  let "DETECTEDSERVICESCOUNT+=1"
+  DETECTEDSERVICESNAME+=" Plesk Panel"
+fi
+
+if [[ $DETECTEDSERVICESCOUNT -ne 0 ]]; then
+    message="Installer detected $DETECTEDSERVICESCOUNT existing services;$DETECTEDSERVICESNAME. Installation will not proceed."
+    echo $message
+    exit 1
+fi
+
+# end services checker
+
+# Checking if server is up
+CheckingRemoteAccessible
 
 # Bootstrap the server
 BootstrapServer
@@ -601,5 +693,5 @@ User: $USER
 Password: $CAPIMAPASSWORD
 \n
 \n
-You can now manage your server using $CAPIMAURL
+You can now manage your server using 'sudo capima' command.
 "

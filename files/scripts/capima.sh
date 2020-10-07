@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.1
+# VERSION: 1.1.2
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -51,13 +51,18 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.1"
+readonly VERSION="1.1.2"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
 readonly NGINX_CONFDIR="/etc/nginx-rc/conf.d"
 readonly APACHE_CONFDIR="/etc/apache2-rc/conf.d"
 readonly CAPIMA_LOGFILE="/var/log/capima.log"
+
+# Services detection
+SERVICES=$(systemctl --type=service --state=active | grep -E '\.service' | cut -d ' ' -f1 | sed -r 's/.{8}$//' | tr '\n' ' ')
+DETECTEDSERVICESCOUNT=0
+DETECTEDSERVICESNAME=""
 
 function main {
   case "$1" in
@@ -136,6 +141,9 @@ function WebAppsManagement {
 }
 
 function CreateNewWebApp {
+  # Make request to server
+  CheckingRemoteAccessible
+
   # Define the app name
   while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
   do
@@ -202,15 +210,29 @@ function CreateNewWebApp {
       ;;
   esac
 
-  # Enable SSL or webapp
-  read -r -p "${BLUE}Do you want to enable SSL for your webapp (default is Yes)? [Y/N]${NORMAL} " response
+  # Enable SSL for webapp
+  read -r -p "${BLUE}Do you want to enable SSL for your webapp (dev,live,skip)? [dev]${NORMAL} " response
   case "$response" in
-    [nN][oO]|[nN])
+    skip)
       SECURED_WEBAPP="N"
       echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
       echo ""
       ;;
-    [yY][eE][sS]|[yY]|*)
+    live)
+      SECURED_WEBAPP="Y"
+      echo -ne "${YELLOW}Configuring SSL certificates (Lets Encrypt)..."
+      if [[ ! -d "$CERTDIR/$APPNAME" ]]; then
+        mkdir -p "$CERTDIR/$APPNAME"
+      fi
+      SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
+      SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
+      SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
+      SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
+
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+    dev|local|*)
       SECURED_WEBAPP="Y"
       echo -ne "${YELLOW}Configuring SSL certificates..."
       if [[ ! -d "$CERTDIR/$APPNAME" ]]; then
@@ -234,30 +256,58 @@ function CreateNewWebApp {
   esac
 
   # Choose PHP version
-  read -r -p "${BLUE}Please choose PHP version of your webapp? [7.3]${NORMAL} " response
+  read -r -p "${BLUE}Please choose PHP version of your webapp? [7.4]${NORMAL} " response
   case "$response" in
     5.5|55)
-      PHP_VERSION="php55rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        PHP_VERSION="php55rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     5.6|56)
-      PHP_VERSION="php56rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        PHP_VERSION="php56rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     7.0|70)
-      PHP_VERSION="php70rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'bionic' ]]; then
+        PHP_VERSION="php70rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     7.1|71)
-      PHP_VERSION="php71rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'bionic' ]]; then
+        PHP_VERSION="php71rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     7.2|72)
       PHP_VERSION="php72rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
-    7.3|73|*)
+    7.3|73)
       PHP_VERSION="php73rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    7.4|74|*)
+      PHP_VERSION="php74rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
   esac
@@ -301,11 +351,13 @@ function DeleteWebApp {
   if [[ "$OSCODENAME" == 'xenial' ]]; then
     systemctl restart php55rc-fpm.service
     systemctl restart php56rc-fpm.service
+  elif [[ "$OSCODENAME" == 'bionic' ]]; then
+    systemctl restart php70rc-fpm.service
+    systemctl restart php71rc-fpm.service
   fi
-  systemctl restart php70rc-fpm.service
-  systemctl restart php71rc-fpm.service
   systemctl restart php72rc-fpm.service
   systemctl restart php73rc-fpm.service
+  systemctl restart php74rc-fpm.service
   echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 
@@ -376,16 +428,32 @@ function BootstrapWebApplication {
 function SwitchPhpCliVersion {
   case "$2" in
     5.5|55)
-      ln -sf /RunCloud/Packages/php55rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        ln -sf /RunCloud/Packages/php55rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     5.6|56)
-      ln -sf /RunCloud/Packages/php56rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        ln -sf /RunCloud/Packages/php56rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     7.0|70)
-      ln -sf /RunCloud/Packages/php70rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'bionic' ]]; then
+        ln -sf /RunCloud/Packages/php70rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     7.1|71)
-      ln -sf /RunCloud/Packages/php71rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'bionic' ]]; then
+        ln -sf /RunCloud/Packages/php71rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     7.2|72)
       ln -sf /RunCloud/Packages/php72rc/bin/php /usr/bin/php
@@ -393,25 +461,113 @@ function SwitchPhpCliVersion {
     7.3|73)
       ln -sf /RunCloud/Packages/php73rc/bin/php /usr/bin/php
     ;;
+    7.4|74)
+      ln -sf /RunCloud/Packages/php74rc/bin/php /usr/bin/php
+    ;;
   esac
 
-  echo -ne "${YELLOW}PHP-CLI version set to: $2."
+  if [[ -z "$use_default" ]]; then
+    echo -ne "${YELLOW}This version of PHP does not supported with your server installation."
+  else
+    echo -ne "${YELLOW}PHP-CLI version set to: $2."
+  fi
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
 
 function EnableServices {
+  if [[ $SERVICES == *"$2"* ]]; then
+    let "DETECTEDSERVICESCOUNT+=1"
+    DETECTEDSERVICESNAME+=" $2"
+  fi
+
+  if [[ $DETECTEDSERVICESCOUNT -ne 0 ]]; then
+    message="Installer detected $DETECTEDSERVICESCOUNT existing services;$DETECTEDSERVICESNAME. Installation will not proceed."
+    echo $message
+    exit 1
+  fi
+
   case "$2" in
     elasticsearch)
-      systemctl enable elasticsearch.service
-      systemctl restart elasticsearch.service
+      wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+      case "$3" in
+        5)
+          echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
+          echo -ne "${YELLOW}Installing Elastic Search 5.x"
+        6)
+          echo "deb https://artifacts.elastic.co/packages/6.x/apt stable main" > /etc/apt/sources.list.d/elastic-6.x.list
+          echo -ne "${YELLOW}Installing Elastic Search 6.x"
+        ;;
+        7|*)
+          echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
+          echo -ne "${YELLOW}Installing Elastic Search 7.x"
+        ;;
+      esac
+      apt-get update -q
+      apt-get install default-jre elasticsearch -y -q
+      systemctl daemon-reload
+      systemctl enable elasticsearch
+      systemctl restart elasticsearch
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
     ;;
     redis)
+      echo -ne "${YELLOW}Enabling Redis"
       systemctl enable redis-server
       systemctl restart redis-server
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+    ;;
+    mailhog)
+      echo -ne "${YELLOW}Installing MailHog"
+      mkdir -p /opt/Go/src
+
+      source /etc/profile.d/capimapath.sh
+
+      go get github.com/mailhog/MailHog
+      go get github.com/mailhog/mhsendmail
+
+      ln -s $GOPATH/bin/MailHog /usr/local/bin/MailHog
+      ln -s $GOPATH/bin/mhsendmail /usr/local/bin/mhsendmail
+
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php55rc/conf.d/z-mailhog.ini
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php56rc/conf.d/z-mailhog.ini
+        systemctl restart php55rc-fpm.service
+        systemctl restart php56rc-fpm.service
+      elif [[ "$OSCODENAME" == 'bionic' ]]; then
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
+        systemctl restart php70rc-fpm.service
+        systemctl restart php71rc-fpm.service
+      fi
+
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php74rc/conf.d/z-mailhog.ini
+      systemctl restart php72rc-fpm.service
+      systemctl restart php73rc-fpm.service
+      systemctl restart php74rc-fpm.service
+
+      echo "[Unit]
+Description=MailHog Service
+After=network.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127.0.0.1:8025 -smtp-bind-addr 127.0.0.1:1025 > /dev/null 2>&1 &
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
+
+    systemctl daemon-reload
+    systemctl enable mailhog.service
+    systemctl restart mailhog.service
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
     ;;
     *)
-      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis.${NORMAL}"
+      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis, mailhog.${NORMAL}"
     ;;
   esac
 }
@@ -428,11 +584,13 @@ function RestartServices {
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         systemctl restart php55rc-fpm.service
         systemctl restart php56rc-fpm.service
+      elif [[ "$OSCODENAME" == 'bionic' ]]; then
+        systemctl restart php70rc-fpm.service
+        systemctl restart php71rc-fpm.service
       fi
-      systemctl restart php70rc-fpm.service
-      systemctl restart php71rc-fpm.service
       systemctl restart php72rc-fpm.service
       systemctl restart php73rc-fpm.service
+      systemctl restart php74rc-fpm.service
     ;;
     elastic)
       systemctl restart elasticsearch.service
@@ -449,11 +607,13 @@ function RestartServices {
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         systemctl restart php55rc-fpm.service
         systemctl restart php56rc-fpm.service
+      elif [[ "$OSCODENAME" == 'bionic' ]]; then
+        systemctl restart php70rc-fpm.service
+        systemctl restart php71rc-fpm.service
       fi
-      systemctl restart php70rc-fpm.service
-      systemctl restart php71rc-fpm.service
       systemctl restart php72rc-fpm.service
       systemctl restart php73rc-fpm.service
+      systemctl restart php74rc-fpm.service
       systemctl restart elasticsearch.service
       systemctl restart redis-server.service
       systemctl restart mailhog.service
@@ -461,7 +621,11 @@ function RestartServices {
   esac
 
   if [[ "$?" -eq 0 ]]; then
-    echo -ne "${BLUE}$2 service(s) has been restarted successfully."
+    if [[ ! -z "$2" ]]; then
+      echo -ne "${BLUE}${2} service has been restarted successfully."
+    else
+      echo -ne "${BLUE}All services has been restarted successfully."
+    fi
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
@@ -525,6 +689,26 @@ function VersionCheck {
   else
     return 999
   fi
+}
+
+function CheckingRemoteAccessible {
+    echo -ne "\n${GREEN}Checking if $CAPIMAURL is accessible...${NORMAL}\n"
+
+    # send command to check wait 2 seconds inside jobs before trying
+    timeout 15 bash -c "curl -4 -I --silent $CAPIMAURL | grep 'HTTP/2 200' &>/dev/null"
+    status="$?"
+    if [[ "$status" -ne 0 ]]; then
+        clear
+echo -ne "\n
+##################################################
+# Unable to connect to Capima server from this   #
+# Please take a coffee or take a nap and rerun   #
+# the installation script again!                 #
+##################################################
+\n\n\n
+"
+        exit 1
+    fi
 }
 
 function UpdateSelfAndInvoke {
@@ -632,7 +816,7 @@ function Usage {
 
       echo "Available commands:"
       echo " web${NORMAL}              Webapps management panel (add/update/delete)."
-      echo " use${NORMAL}              Switch between version of PHP-CLI. (7.0, 7.1, 7.2, 7.3)"
+      echo " use${NORMAL}              Switch between version of PHP-CLI. (55/56/70/71/72/73/74)"
       echo " restart${NORMAL}          Restart Capima services."
       echo " info${NORMAL}             Show webapps information (under development)."
       echo " logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
