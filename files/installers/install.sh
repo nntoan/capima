@@ -75,10 +75,6 @@ function BootstrapInstaller {
     # Install RunCloud Source List
     echo "deb [arch=amd64] https://release.runcloud.io/ $OSCODENAME main" > /etc/apt/sources.list.d/runcloud.list
 
-    # Install ElasticSearch Source List
-    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
-    echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
-
     # LTS version nodejs
     curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
 

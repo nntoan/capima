@@ -56,6 +56,7 @@ readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
 readonly NGINX_CONFDIR="/etc/nginx-rc/conf.d"
+readonly NGINX_EXTRA_CONFDIR="/etc/nginx-rc/extra.d"
 readonly APACHE_CONFDIR="/etc/apache2-rc/conf.d"
 readonly CAPIMA_LOGFILE="/var/log/capima.log"
 
@@ -396,6 +397,7 @@ function BootstrapWebApplication {
   fi
   if [[ "$1" == "magenx" ]]; then
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
   else
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   fi
