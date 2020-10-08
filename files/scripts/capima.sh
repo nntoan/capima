@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.6
+# VERSION: 1.1.7
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -56,7 +56,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.6"
+readonly VERSION="1.1.7"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -275,6 +275,7 @@ function CreateNewWebApp {
       echo -ne "${YELLOW}Configuring SSL certificates for Let's Encrypt..."
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         if [[ ! -f "$CERTBOT_AUTO" ]]; then
+          echo ""
           read -r -p "${BLUE}Let's Encrypt is not installed/found. Would you like to install it? [Y/N]${NORMAL} " response
           case "$response" in
             [nN][oO]|[nN])
@@ -292,6 +293,7 @@ function CreateNewWebApp {
         fi
       else
         if [[ "$le" == 0 ]]; then
+          echo ""
           read -r -p "${BLUE}Let's Encrypt is not installed/found. Would you like to install it? [Y/N]${NORMAL} " response
           case "$response" in
             [nN][oO]|[nN])
@@ -308,10 +310,15 @@ function CreateNewWebApp {
           esac
         fi
       fi
+
+      # Configuring variables
       for domain in $APPDOMAINS; do
         APPDOMAINS_LE+=("-d $domain")
       done
-      read -r -p "${BLUE}Enter the email you would like to register with EFF ? [Y/N]${NORMAL} " LE_EMAIL
+      CERTDIR="/etc/letsencrypt/live"
+      SECURED_KEYFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/privkey.pem"
+      SECURED_CRTFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/fullchain.pem"
+      read -r -p "${BLUE}Enter the email you would like to register with EFF?${NORMAL} " LE_EMAIL
 
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -525,9 +532,9 @@ function BootstrapWebApplication {
     if [[ "$SECURED_LIVE" == "Y" ]]; then
       echo -ne "${YELLOW}... Generating Live SSL certificates... "
       if [[ "$OSCODENAME" == 'xenial' ]]; then
-        $CERTBOT_AUTO certonly --config-dir "$CERTDIR" --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
+        $CERTBOT_AUTO certonly --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
       else
-        letsencrypt certonly --config-dir "$CERTDIR" --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
+        letsencrypt certonly --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
       fi
     fi
     if [[ -f "$SECURED_KEYFILE" ]]; then
