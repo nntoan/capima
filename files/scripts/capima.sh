@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.3
+# VERSION: 1.1.4
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -36,6 +36,7 @@ USER="capima"
 HOMEDIR=$(getent passwd $USER | cut -d ':' -f6 | sed 's/\/*$//g')
 WEBAPP_STACK=""
 APPNAME="$$$"
+DBNAME="$$$"
 APPDOMAINS=""
 APPDOMAINS_CRT=""
 PUBLICPATH="current"
@@ -51,7 +52,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.3"
+readonly VERSION="1.1.4"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -69,6 +70,9 @@ function main {
   case "$1" in
     web)
       WebAppsManagement "$@"
+    ;;
+    db)
+      DatabasesManagement "$@"
     ;;
     use)
       SwitchPhpCliVersion "$@"
@@ -133,6 +137,47 @@ function WebAppsManagement {
       ;;
       delete)
         DeleteWebApp
+      ;;
+      *)
+        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
+      ;;
+    esac
+  fi
+}
+
+function DatabasesManagement {
+  Heading
+
+  if [[ -z "$2" ]]; then
+    # Must-choose an option
+    while true; do
+      read -r -p "${BLUE}Please select an action you would like to take [add|update|delete]:${NORMAL} " action
+      case "$action" in
+        exit|q|x) break ;;
+        add|new|a)
+          CreateNewDb
+        ;;
+        update|u)
+          UpdateDb
+        ;;
+        delete|remove|del|d)
+          DeleteDb
+        ;;
+        *)
+          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d) or type 'exit' (q, x) to quit.${NORMAL}"
+        ;;
+      esac
+    done
+  else
+    case "$2" in
+      add)
+        CreateNewDb
+      ;;
+      update)
+        UpdateDb
+      ;;
+      delete)
+        DeleteDb
       ;;
       *)
         echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
@@ -365,6 +410,54 @@ function DeleteWebApp {
   exit
 }
 
+function CreateNewDb {
+  # Make request to server
+  CheckingRemoteAccessible
+
+  # Define the database name
+  while [[ $DBNAME =~ [^-_a-z0-9] ]] || [[ $DBNAME == '' ]]
+  do
+    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " DBNAME
+    if [[ -z "$DBNAME" ]]; then
+      echo -ne "${RED}No database name entered.${NORMAL}"
+      echo ""
+    else
+      mysql -uroot -p$(GetRootPassword) -e "CREATE DATABASE IF NOT EXISTS ${DBNAME};"
+    fi
+  done
+
+  echo -ne "${YELLOW}New database has been created: $DBNAME"
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
+}
+
+function UpdateDb {
+  echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
+}
+
+function DeleteDb {
+  # Define the database name
+  while [[ $dbname =~ [^-_a-z0-9] ]] || [[ $dbname == '' ]]
+  do
+    read -r -p "${BLUE}Please enter the database name you would like to delete:${NORMAL} " dbname
+    if [[ -z "$dbname" ]]; then
+      echo -ne "${RED}No database name entered.${NORMAL}"
+      echo ""
+    fi
+  done
+
+  echo -ne "${YELLOW}Please wait, we are removing your database...${NORMAL}"
+  mysql -uroot -p$(GetRootPassword) -e "DROP DATABASE ${dbname};"
+  echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
+
+  exit
+}
+
+function GetRootPassword {
+  cat "$HOMEDIR/.my.cnf" | grep password | sed -e 's/password=//g'
+}
+
 function BootstrapWebApplication {
   # Start configuring everything
   echo -ne "${YELLOW}Please wait, we are configuring your web application"
@@ -397,7 +490,7 @@ function BootstrapWebApplication {
   fi
   if [[ "$1" == "magenx" ]]; then
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
-    wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
   else
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   fi
@@ -797,6 +890,7 @@ function Usage {
 
       echo "${YELLOW}Available commands:${NORMAL}"
       echo ${GREEN} "web${NORMAL}              Webapps management panel (add/update/delete)."
+      echo ${GREEN} "db${NORMAL}               Databases management panel (add/update/delete)."
       echo ${GREEN} "use${NORMAL}              Switch between version of PHP-CLI."
       echo ${GREEN} "enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
       echo ${GREEN} "restart${NORMAL}          Restart Capima service(s)."
@@ -825,6 +919,7 @@ function Usage {
 
       echo "Available commands:"
       echo " web${NORMAL}              Webapps management panel (add/update/delete)."
+      echo " db${NORMAL}               Databases management panel (add/update/delete)."
       echo " use${NORMAL}              Switch between version of PHP-CLI."
       echo " enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
       echo " restart${NORMAL}          Restart Capima services."
