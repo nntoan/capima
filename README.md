@@ -36,16 +36,23 @@ Hardware requirement
   * 7.3
   * 7.4
 * MariaDB 10.4
-  * Performance optimised for general purposes
+  * Performance optimised for general purposes.
 * Node.js LTS (12.x)
 * Python
-  * Python 3 if Ubuntu 20.04 
+  * Python 3 if Ubuntu 20.04.
 * Redis (can be enabled later by CLI)
 * ElasticSearch (can be enabled later by CLI)
   * 5.x if Ubuntu 16.04
   * 6.x if Ubuntu 18.04
   * 7.x if Ubuntu 20.04 
 * MailHog (can be enabled later by CLI)
+* Postfix
+* Memcached (disabled by default)
+* Beanstalk (disabled by default)
+* Firewalld
+  * Port 22, 80, 443 accessible by default.
+  * ufw, iptables will be disabled/removed.
+* Fail2ban
 
 ## Installation
 
