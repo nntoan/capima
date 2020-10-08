@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.2
+# VERSION: 1.1.3
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -466,9 +466,12 @@ function SwitchPhpCliVersion {
     7.4|74)
       ln -sf /RunCloud/Packages/php74rc/bin/php /usr/bin/php
     ;;
+    *)
+      use_default=1
+    ;;
   esac
 
-  if [[ -z "$use_default" ]]; then
+  if [[ ! -z "$use_default" ]]; then
     echo -ne "${YELLOW}This version of PHP does not supported with your server installation."
   else
     echo -ne "${YELLOW}PHP-CLI version set to: $2."
@@ -491,32 +494,35 @@ function EnableServices {
 
   case "$2" in
     elasticsearch)
-      wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
       case "$3" in
         5)
+          wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
           echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
           echo -ne "${YELLOW}Installing Elastic Search 5.x"
+        ;;
         6)
+          wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
           echo "deb https://artifacts.elastic.co/packages/6.x/apt stable main" > /etc/apt/sources.list.d/elastic-6.x.list
           echo -ne "${YELLOW}Installing Elastic Search 6.x"
         ;;
         7|*)
+          wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
           echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
           echo -ne "${YELLOW}Installing Elastic Search 7.x"
         ;;
       esac
-      apt-get update -q
-      apt-get install default-jre elasticsearch -y -q
-      systemctl daemon-reload
-      systemctl enable elasticsearch
-      systemctl restart elasticsearch
+      apt-get update -qq
+      apt-get install default-jre elasticsearch -y -qq
+      systemctl daemon-reload &>/dev/null
+      systemctl enable elasticsearch &>/dev/null
+      systemctl restart elasticsearch &>/dev/null
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
     ;;
     redis)
       echo -ne "${YELLOW}Enabling Redis"
-      systemctl enable redis-server
-      systemctl restart redis-server
+      systemctl enable redis-server &>/dev/null
+      systemctl restart redis-server &>/dev/null
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
     ;;
@@ -562,9 +568,9 @@ ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127
 [Install]
 WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
 
-    systemctl daemon-reload
-    systemctl enable mailhog.service
-    systemctl restart mailhog.service
+    systemctl daemon-reload &>/dev/null
+    systemctl enable mailhog.service &>/dev/null
+    systemctl restart mailhog.service &>/dev/null
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
     ;;
@@ -792,7 +798,8 @@ function Usage {
       echo "${YELLOW}Available commands:${NORMAL}"
       echo ${GREEN} "web${NORMAL}              Webapps management panel (add/update/delete)."
       echo ${GREEN} "use${NORMAL}              Switch between version of PHP-CLI."
-      echo ${GREEN} "restart${NORMAL}          Restart Capima services."
+      echo ${GREEN} "enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
+      echo ${GREEN} "restart${NORMAL}          Restart Capima service(s)."
       echo ${GREEN} "info${NORMAL}             Show webapps information (under development)."
       echo ${GREEN} "logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
       echo ${GREEN} "self-update${NORMAL}      Check latest version and performing self-update."
@@ -818,7 +825,8 @@ function Usage {
 
       echo "Available commands:"
       echo " web${NORMAL}              Webapps management panel (add/update/delete)."
-      echo " use${NORMAL}              Switch between version of PHP-CLI. (55/56/70/71/72/73/74)"
+      echo " use${NORMAL}              Switch between version of PHP-CLI."
+      echo " enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
       echo " restart${NORMAL}          Restart Capima services."
       echo " info${NORMAL}             Show webapps information (under development)."
       echo " logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."

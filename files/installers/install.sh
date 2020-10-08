@@ -286,57 +286,6 @@ password=$ROOTPASS
     chmod 600 /etc/mysql/conf.d/root.cnf
 }
 
-function BootstrapMailHog {
-    mkdir -p /opt/Go/src
-
-    source /etc/profile.d/capimapath.sh
-
-    go get github.com/mailhog/MailHog
-    go get github.com/mailhog/mhsendmail
-
-    ln -s $GOPATH/bin/MailHog /usr/local/bin/MailHog
-    ln -s $GOPATH/bin/mhsendmail /usr/local/bin/mhsendmail
-
-    if [[ "$OSCODENAME" == 'xenial' ]]; then
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php55rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php56rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
-      systemctl restart php55rc-fpm.service
-      systemctl restart php56rc-fpm.service
-      systemctl restart php70rc-fpm.service
-      systemctl restart php71rc-fpm.service
-      systemctl restart php72rc-fpm.service
-      systemctl restart php73rc-fpm.service
-    elif [[ "$OSCODENAME" == 'bionic' ]]; then
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php74rc/conf.d/z-mailhog.ini
-      systemctl restart php70rc-fpm.service
-      systemctl restart php71rc-fpm.service
-      systemctl restart php72rc-fpm.service
-      systemctl restart php73rc-fpm.service
-    fi
-
-    echo "[Unit]
-Description=MailHog Service
-After=network.service
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127.0.0.1:8025 -smtp-bind-addr 127.0.0.1:1025 > /dev/null 2>&1 &
-
-[Install]
-WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
-
-  systemctl enable mailhog.service
-  systemctl restart mailhog.service
-}
-
 function BootstrapWebApplication {
     USER="capima"
     CAPIMAPASSWORD=$(RandomString)
@@ -462,8 +411,8 @@ function BootstrapSystemdService {
     systemctl disable redis-server
     systemctl stop redis-server
 
-    systemctl disable elasticsearch.service
-    systemctl stop elasticsearch.service
+    #systemctl disable elasticsearch.service
+    #systemctl stop elasticsearch.service
 
     systemctl disable memcached
     systemctl stop memcached
@@ -631,10 +580,6 @@ InstallComposer
 # Tweak
 sleep 2
 RegisterPathAndTweak
-
-# MailHog Service
-sleep 2
-BootstrapMailHog
 
 # Systemd Service
 sleep 2
