@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.4
+# VERSION: 1.1.5
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -52,7 +52,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.4"
+readonly VERSION="1.1.5"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -422,7 +422,7 @@ function CreateNewDb {
       echo -ne "${RED}No database name entered.${NORMAL}"
       echo ""
     else
-      mysql -uroot -p$(GetRootPassword) -e "CREATE DATABASE IF NOT EXISTS ${DBNAME};"
+      mysql -uroot -p$(GetRootPassword) -e "CREATE DATABASE IF NOT EXISTS ${DBNAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
     fi
   done
 

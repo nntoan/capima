@@ -128,6 +128,28 @@ Enter the app name you would like to delete:
 
 ![Delete app](screenshots/capima-web-del.png)
 
+### DB
+
+Manage your databases.
+
+```bash
+$ sudo capima db add
+```
+
+Adding new database
+
+![Add new database 1](screenshots/capima-db-add-1.png)
+
+![Add new database 2](screenshots/capima-db-add-2.png)
+
+```bash
+$ sudo capima db delete
+```
+
+Delete a database
+
+![Delete a database](screenshots/capima-db-del.png)
+
 ### USE
 
 Switch your PHP-CLI version quickly.
