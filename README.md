@@ -2,7 +2,7 @@
 
 Capima is a modern web server stack designed to help you manage your PHP web application and websites easier and faster. Our stack is _production-ready_ stack which currently in used for many customers around the globe.
 
-![MOTD](screenshots/capima-motd.png)
+![Capima](screenshots/capima.png)
 
 > Installing, configuring and optimizing your web server has never been so easy.
 
@@ -61,6 +61,8 @@ Run the following command with sudo or root user.
 ```bash
 export DEBIAN_FRONTEND=noninteractive; echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4; sudo apt-get update; sudo apt-get install curl netcat-openbsd ca-certificates wget -y; curl -4 --silent --location https://capima.nntoan.com/files/installers/install.sh | sudo bash -; export DEBIAN_FRONTEND=newt
 ```
+
+![MOTD](screenshots/capima-motd.png)
 
 ## Usage
 
