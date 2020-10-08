@@ -9,7 +9,7 @@
 OSNAME=`lsb_release -s -i`
 OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
-SUPPORTEDVERSION="16.04 18.04"
+SUPPORTEDVERSION="16.04 18.04 20.04"
 PHPCLIVERSION="php74rc"
 INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go "
 
