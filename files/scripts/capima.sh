@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.5
+# VERSION: 1.1.6
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -39,20 +39,24 @@ APPNAME="$$$"
 DBNAME="$$$"
 APPDOMAINS=""
 APPDOMAINS_CRT=""
+APPDOMAINS_LE=""
 PUBLICPATH="current"
 PHP_VERSION=""
 WEBAPP_DIR="$HOMEDIR/webapps"
 CERTDIR="/opt/Capima/certificates"
 SECURED_WEBAPP="X"
+SECURED_LIVE="X"
 CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+LE_EMAIL=""
+CERTBOT_AUTO="/usr/local/bin/certbot-auto"
 SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
 SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
 SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.5"
+readonly VERSION="1.1.6"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -266,14 +270,48 @@ function CreateNewWebApp {
       ;;
     live)
       SECURED_WEBAPP="Y"
-      echo -ne "${YELLOW}Configuring SSL certificates (Lets Encrypt)..."
-      if [[ ! -d "$CERTDIR/$APPNAME" ]]; then
-        mkdir -p "$CERTDIR/$APPNAME"
+      SECURED_LIVE="Y"
+      le=$(dpkg-query -W -f='${Status}' letsencrypt 2>/dev/null | grep -c "ok installed")
+      echo -ne "${YELLOW}Configuring SSL certificates for Let's Encrypt..."
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        if [[ ! -f "$CERTBOT_AUTO" ]]; then
+          read -r -p "${BLUE}Let's Encrypt is not installed/found. Would you like to install it? [Y/N]${NORMAL} " response
+          case "$response" in
+            [nN][oO]|[nN])
+              echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+              echo ""
+            ;;
+            [yY][eE][sS]|[yY]|*)
+              echo -ne "${YELLOW}Installing Let's Encrypt...${NORMAL}"
+              git clone https://github.com/certbot/certbot.git /opt/Capima/certbot &>/dev/null
+              ln -sf /opt/Capima/certbot/certbot-auto /usr/local/bin/certbot-auto
+              echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+              echo ""
+            ;;
+          esac
+        fi
+      else
+        if [[ "$le" == 0 ]]; then
+          read -r -p "${BLUE}Let's Encrypt is not installed/found. Would you like to install it? [Y/N]${NORMAL} " response
+          case "$response" in
+            [nN][oO]|[nN])
+              echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+              echo ""
+            ;;
+            [yY][eE][sS]|[yY]|*)
+              echo -ne "${YELLOW}Installing Let's Encrypt...${NORMAL}"
+              apt-get update -qq
+              apt-get install letsencrypt -y -qq
+              echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+              echo ""
+            ;;
+          esac
+        fi
       fi
-      SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
-      SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
-      SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
-      SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
+      for domain in $APPDOMAINS; do
+        APPDOMAINS_LE+=("-d $domain")
+      done
+      read -r -p "${BLUE}Enter the email you would like to register with EFF ? [Y/N]${NORMAL} " LE_EMAIL
 
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
@@ -281,13 +319,13 @@ function CreateNewWebApp {
     dev|local|*)
       SECURED_WEBAPP="Y"
       echo -ne "${YELLOW}Configuring SSL certificates..."
-      if [[ ! -d "$CERTDIR/$APPNAME" ]]; then
-        mkdir -p "$CERTDIR/$APPNAME"
+      if [[ ! -d "$CERTDIR/${APPDOMAINS_CRT[0]}" ]]; then
+        mkdir -p "$CERTDIR/${APPDOMAINS_CRT[0]}"
       fi
-      SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
-      SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
-      SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
-      SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
+      SECURED_KEYFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/privkey.pem"
+      SECURED_CONFFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/openssl.conf"
+      SECURED_CRTFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/fullchain.pem"
+      SECURED_CSRFILE="$CERTDIR/${APPDOMAINS_CRT[0]}/$APPNAME.csr"
 
       # Downloading config file
       wget "$CAPIMAURL/templates/openssl/openssl.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $SECURED_CONFFILE
@@ -484,10 +522,20 @@ function BootstrapWebApplication {
   mkdir -p $NGINX_CONFDIR/$APPNAME.d
   wget "$CAPIMAURL/templates/nginx/$1/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.conf
   if [[ "$SECURED_WEBAPP" == "Y" ]]; then
+    if [[ "$SECURED_LIVE" == "Y" ]]; then
+      echo -ne "${YELLOW}... Generating Live SSL certificates... "
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        $CERTBOT_AUTO certonly --config-dir "$CERTDIR" --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
+      else
+        letsencrypt certonly --config-dir "$CERTDIR" --email "$LE_EMAIL" --agree-tos --webroot -w "$WEBAPP_DIR/$APPNAME/$PUBLICPATH" ${APPDOMAINS_LE[@]} &>/dev/null
+      fi
+    fi
     if [[ -f "$SECURED_KEYFILE" ]]; then
-      wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
+      wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
     fi
   fi
+
+  # Magento 2
   if [[ "$1" == "magenx" ]]; then
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
@@ -498,7 +546,7 @@ function BootstrapWebApplication {
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
   echo -ne "$NGINX_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$NGINX_CONFDIR/$APPNAME.d:" >> $CAPIMA_LOGFILE
-  
+
   # Apache
   if [[ "$1" == "hybrid" ]]; then
     wget "$CAPIMAURL/templates/apache/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s/PUBLICPATH/$PUBLICPATH/g" > $APACHE_CONFDIR/$APPNAME.conf
