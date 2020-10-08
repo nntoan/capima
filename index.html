@@ -1,9 +1,20 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Welcome To Capima!</title>
-    <style type="text/css">body {
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capima | Modern web server stack for minimalist!</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@webcomponents/webcomponentsjs@2/webcomponents-loader.min.js"></script>
+    <script type="module">
+        WebComponents.waitFor(() => {
+        let el = document.createElement('script');
+        el.src = 'https://cdn.jsdelivr.net/gh/zerodevx/zero-md@1/src/zero-md.min.js';
+        document.head.appendChild(el);
+        });
+    </script>
+    <style type="text/css">
+        body {
             font-family: Arial, Helvetica, sans-serif;
         }
 
@@ -52,21 +63,12 @@
 
         .text-center {
             text-align: center;
-        }</style>
+        }
+    </style>
 </head>
 <body>
-<div class="wrap">
-    <div class="center"><h1 class="text-center">Welcome To Capima</h1>
-        <p class="text-center">Please go away.</p>
-        <div class="breaker"></div>
-        <h1 class="text-center">Getting Started</h1>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">1. Follow the instructions on GitHub.</a></p>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">2. Now you have a newly Capima box installed.</a></p>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">3. Easy, huh?</a></p>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">4. Stop looking at me.</a></p>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">5. Focus on what you're best - coding.</a></p>
-        <p class="text-center"><a href="https://github.com/nntoan/capima" target="_blank">6. Cheers!.</a></p></div>
-</div>
-<div class="footer"> Capima&reg; - Toan Nguyen.</div>
+    <div id="content"></div>
+    <zero-md src="https://capima.nntoan.com/README.md"></zero-md>
+    <div class="footer">Capima&reg; - &copy;<a href="https://nntoan.com" target="_blank">Toan Nguyen.</a></div>
 </body>
 </html>
