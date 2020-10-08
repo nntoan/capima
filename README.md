@@ -92,6 +92,16 @@ Available commands:
  self-update      Check latest version and performing self-update.
 ```
 
+Please note that you will need to switch to `capima` user in order to work with your app files.
+
+```bash
+$ sudo su - capima
+```
+
+`capima` user can use `sudo capima` without being prompted password. That command is the only sudo command `capima` user can use. We **DO NOT** recommend to give `capima` full `sudo` privileges. Webserver user should never given `sudo` privileges as per security best practices.
+
+![Daily Usage](screenshots/capima-daily-usage.png)
+
 ## List of commands
 
 Quick guide of commands available in Capima for configuration and adjustment of this application.
