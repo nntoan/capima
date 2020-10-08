@@ -51,7 +51,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.2"
+readonly VERSION="1.1.3"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
