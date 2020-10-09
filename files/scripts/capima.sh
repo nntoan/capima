@@ -271,7 +271,7 @@ function CreateNewWebApp {
     live)
       SECURED_WEBAPP="Y"
       SECURED_LIVE="Y"
-      le=$(dpkg-query -W -f='${Status}' letsencrypt 2>/dev/null | grep -c "ok installed")
+      le=$(dpkg-query -W letsencrypt 2>/dev/null)
       echo -ne "${YELLOW}Configuring SSL certificates for Let's Encrypt..."
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         if [[ ! -f "$CERTBOT_AUTO" ]]; then
@@ -292,7 +292,7 @@ function CreateNewWebApp {
           esac
         fi
       else
-        if [[ "$le" == 0 ]]; then
+        if [[ "$le" != 'letsencrypt' ]]; then
           echo ""
           read -r -p "${BLUE}Let's Encrypt is not installed/found. Would you like to install it? [Y/N]${NORMAL} " response
           case "$response" in
