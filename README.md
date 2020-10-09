@@ -85,7 +85,9 @@ Options:
 
 Available commands:
  web              Webapps management panel (add/update/delete).
+ db               Databases management panel (add/update/delete).
  use              Switch between version of PHP-CLI.
+ enable           Enable optional services (elasticsearch, redis, mailhog).
  restart          Restart Capima services.
  info             Show webapps information (under development).
  logs             Tail the last 200 lines of logfile (apache,fpm,nginx).
