@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.7
+# VERSION: 1.1.8
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -538,6 +538,7 @@ function BootstrapWebApplication {
       fi
     fi
     if [[ -f "$SECURED_KEYFILE" ]]; then
+      echo -ne "${YELLOW}... Working on configurations... "
       wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
     fi
   fi
