@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.8
+# VERSION: 1.1.9
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -42,6 +42,7 @@ APPDOMAINS_CRT=""
 APPDOMAINS_LE=""
 PUBLICPATH="current"
 PHP_VERSION=""
+MNTWEB="/mnt/web/production"
 WEBAPP_DIR="$HOMEDIR/webapps"
 CERTDIR="/opt/Capima/certificates"
 SECURED_WEBAPP="X"
@@ -56,7 +57,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.8"
+readonly VERSION="1.1.9"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -516,7 +517,10 @@ function BootstrapWebApplication {
   fi
   
   mkdir -p "$WEBAPP_DIR/$APPNAME/$PUBLICPATH"
+  mkdir -p "$MNTWEB/$APPNAME/deploy/{shared,git-remote-cache}"
+  mkdir -p "$MNTWEB/$APPNAME/{log,media,sitemap}"
   chown -Rf "$USER":"$USER" "$WEBAPP_DIR/$APPNAME"
+  chown -Rf "$USER":"$USER" "$MNTWEB/$APPNAME"
 
   # Writing to logfile
   echo -ne "$APPNAME:" >> $CAPIMA_LOGFILE
@@ -524,6 +528,7 @@ function BootstrapWebApplication {
   echo -ne "$PHP_VERSION:" >> $CAPIMA_LOGFILE
   echo -ne "$PUBLICPATH:" >> $CAPIMA_LOGFILE
   echo -ne "$WEBAPP_DIR/$APPNAME:" >> $CAPIMA_LOGFILE
+  echo -ne "$MNTWEB/$APPNAME:" >> $CAPIMA_LOGFILE
 
   # Nginx
   mkdir -p $NGINX_CONFDIR/$APPNAME.d

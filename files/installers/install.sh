@@ -289,8 +289,8 @@ password=$ROOTPASS
 function BootstrapWebApplication {
     USER="capima"
     CAPIMAPASSWORD=$(RandomString)
-    HOMEDIR="/srv/users/$USER/"
-    MNTWEB="/mnt/web/production/"
+    HOMEDIR="/srv/users/$USER"
+    MNTWEB="/mnt/web"
     groupadd users-cpm
     mkdir -p "/srv/users"
     adduser --disabled-password --gecos "" --home $HOMEDIR $USER
@@ -299,7 +299,7 @@ function BootstrapWebApplication {
     echo "$USER:$CAPIMAPASSWORD" | chpasswd
     chmod 755 /srv/users
     mkdir -p $HOMEDIR/logs/{nginx,apache2,fpm}
-    mkdir -p $MNTWEB
+    mkdir -p $MNTWEB/{production,staging,development}
 
     # FACL
     setfacl -m g:users-cpm:x /srv/users
@@ -307,7 +307,7 @@ function BootstrapWebApplication {
     setfacl -Rm g:users-cpm:- /etc/mysql
     setfacl -Rm g:users-cpm:- /var/log
     setfacl -Rm g:$USER:rx /srv/users/$USER/logs
-
+    chown -Rf "$USER":"$USER" "$MNTWEB"
 
     mkdir -p /opt/Capima/{.ssh,letsencrypt}
 
