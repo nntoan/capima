@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.1
+# VERSION: 1.2.2
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -57,7 +57,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.1"
+readonly VERSION="1.2.2"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -200,11 +200,9 @@ function CreateNewWebApp {
   randomAppName="app-${randomName}"
   while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
   do
-    read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric) [$randomAppName]:${NORMAL} " response
+    read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric) [$randomAppName]:${NORMAL} " APPNAME
     if [[ -z "$APPNAME" ]]; then
-      $APPNAME="$randomAppName"
-    else
-      $APPNAME="$response"
+      APPNAME="$randomAppName"
     fi
   done
   APPDOMAINS="$APPNAME.test www.$APPNAME.test"
