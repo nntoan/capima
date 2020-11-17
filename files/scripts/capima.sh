@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.1.9
+# VERSION: 1.2.0
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -57,7 +57,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.1.9"
+readonly VERSION="1.2.0"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -196,18 +196,21 @@ function CreateNewWebApp {
   CheckingRemoteAccessible
 
   # Define the app name
+  randomName=$(petname --complexity 2 --words 1)
+  randomAppName="app-${randomName}"
   while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
   do
-    read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric):${NORMAL} " APPNAME
+    read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric) [$randomAppName]:${NORMAL} " response
     if [[ -z "$APPNAME" ]]; then
-      echo -ne "${RED}No app name entered.${NORMAL}"
-      echo ""
+      $APPNAME="$randomAppName"
+    else
+      $APPNAME="$response"
     fi
   done
-    APPDOMAINS="$APPNAME.test www.$APPNAME.test"
-    echo -ne "${YELLOW}Your webapp name set to: $APPNAME"
-    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-    echo ""
+  APPDOMAINS="$APPNAME.test www.$APPNAME.test"
+  echo -ne "${YELLOW}Your webapp name set to: $APPNAME"
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 
   # Define the domains
   read -r -p "${BLUE}Please enter all the domain names and sub-domain names you would like to use, separated by space [$APPDOMAINS]:${NORMAL} " response
@@ -544,7 +547,7 @@ function BootstrapWebApplication {
     fi
     if [[ -f "$SECURED_KEYFILE" ]]; then
       echo -ne "${YELLOW}... Working on configurations... "
-      wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
+      wget "$CAPIMAURL/templates/nginx/$1/$1.ssl.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|CERTDIR|$CERTDIR|g;s/APPDOMAINS/$APPDOMAINS/g;s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $NGINX_CONFDIR/$APPNAME.ssl.conf
     fi
   fi
 

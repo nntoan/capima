@@ -11,7 +11,7 @@ OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
 SUPPORTEDVERSION="16.04 18.04 20.04"
 PHPCLIVERSION="php74rc"
-INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go "
+INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go petname "
 
 # Services detection
 SERVICES=$(systemctl --type=service --state=active | grep -E '\.service' | cut -d ' ' -f1 | sed -r 's/.{8}$//' | tr '\n' ' ')
