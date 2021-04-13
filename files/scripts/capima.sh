@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.2
+# VERSION: 1.2.3
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -57,7 +57,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.2"
+readonly VERSION="1.2.3"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -156,7 +156,7 @@ function DatabasesManagement {
   if [[ -z "$2" ]]; then
     # Must-choose an option
     while true; do
-      read -r -p "${BLUE}Please select an action you would like to take [add|update|delete]:${NORMAL} " action
+      read -r -p "${BLUE}Please select an action you would like to take [add|update|delete|import]:${NORMAL} " action
       case "$action" in
         exit|q|x) break ;;
         add|new|a)
@@ -168,8 +168,11 @@ function DatabasesManagement {
         delete|remove|del|d)
           DeleteDb
         ;;
+        import|i)
+          ImportDb "$@"
+        ;;
         *)
-          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d) or type 'exit' (q, x) to quit.${NORMAL}"
+          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d), import(i) or type 'exit' (q, x) to quit.${NORMAL}"
         ;;
       esac
     done
@@ -183,6 +186,9 @@ function DatabasesManagement {
       ;;
       delete)
         DeleteDb
+      ;;
+      import)
+        ImportDb "$@"
       ;;
       *)
         echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
@@ -501,6 +507,26 @@ function DeleteDb {
   exit
 }
 
+function ImportDb {
+  # Make request to server
+  CheckingRemoteAccessible
+
+  if [[ -z "$1" ]]; then
+    echo -ne "${RED}Database name not provided.${NORMAL}"
+    exit
+  fi
+
+  if [[ -z "$2" ]]; then
+    echo -ne "${RED}Database filepath not provided.${NORMAL}"
+    exit
+  fi
+
+  echo $1
+  echo $2
+  echo ""
+  exit
+}
+
 function GetRootPassword {
   cat "$HOMEDIR/.my.cnf" | grep password | sed -e 's/password=//g'
 }
@@ -518,8 +544,12 @@ function BootstrapWebApplication {
   fi
   
   mkdir -p "$WEBAPP_DIR/$APPNAME/$PUBLICPATH"
-  mkdir -p "$MNTWEB/$APPNAME/deploy/{shared,git-remote-cache}"
-  mkdir -p "$MNTWEB/$APPNAME/{log,media,sitemap}"
+  mkdir -p "$MNTWEB/$APPNAME/deploy/"{shared,git-remote-cache}
+  mkdir -p "$MNTWEB/$APPNAME/log"
+  if [[ "$1" == "magenx" ]]; then
+    mkdir -p "$MNTWEB/$APPNAME/log/"{magento,magento_report}
+    mkdir -p "$MNTWEB/$APPNAME/"{media,sitemap}
+  fi
   chown -Rf "$USER":"$USER" "$WEBAPP_DIR/$APPNAME"
   chown -Rf "$USER":"$USER" "$MNTWEB/$APPNAME"
 
