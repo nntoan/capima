@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.3
+# VERSION: 1.2.4
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -57,7 +57,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.3"
+readonly VERSION="1.2.4"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -169,7 +169,7 @@ function DatabasesManagement {
           DeleteDb
         ;;
         import|i)
-          ImportDb "$@"
+          ImportDb
         ;;
         *)
           echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d), import(i) or type 'exit' (q, x) to quit.${NORMAL}"
@@ -188,10 +188,10 @@ function DatabasesManagement {
         DeleteDb
       ;;
       import)
-        ImportDb "$@"
+        ImportDb
       ;;
       *)
-        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
+        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete, import.${NORMAL}"
       ;;
     esac
   fi
@@ -267,6 +267,25 @@ function CreateNewWebApp {
       echo ""
       ;;
   esac
+
+  if [[ "$WEBAPP_STACK" == "magenx" ]]; then
+    # Set Magento Mode
+    read -r -p "${BLUE}Which deploy mode you would like to setup (developer, production)? [production]${NORMAL} " response
+    case "$response" in
+      developer|dev)
+        MAGE_MODE="developer"
+        echo -ne "${YELLOW}Your Magento application mode has been set to ${MAGE_MODE}"
+        echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+        echo ""
+        ;;
+      production|prod|*)
+        MAGE_MODE="production"
+        echo -ne "${YELLOW}Your Magento application mode has been set to ${MAGE_MODE}"
+        echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+        echo ""
+        ;;
+    esac
+  fi
 
   # Enable SSL for webapp
   read -r -p "${BLUE}Do you want to enable SSL for your webapp (dev,live,skip)? [dev]${NORMAL} " response
@@ -485,7 +504,7 @@ function CreateNewDb {
 }
 
 function UpdateDb {
-  echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
+  echo "${RED}This functionality is being under development... Please try again next year.${NORMAL}"
 }
 
 function DeleteDb {
@@ -511,20 +530,26 @@ function ImportDb {
   # Make request to server
   CheckingRemoteAccessible
 
-  if [[ -z "$1" ]]; then
-    echo -ne "${RED}Database name not provided.${NORMAL}"
-    exit
+  # Define the database name
+  while [[ $DBNAME =~ [^-_a-z0-9] ]] || [[ $DBNAME == '' ]]
+  do
+    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " DBNAME
+    if [[ -z "$DBNAME" ]]; then
+      echo -ne "${RED}No database name entered.${NORMAL}"
+      echo ""
+  done
+
+  read -r -p "${BLUE}Please enter the local filepath of database:${NORMAL} " DBPATH
+  if [[ -z "$DBPATH" ]]; then
+    echo -ne "${RED}No database filepath provided.${NORMAL}"
+    echo ""
+  else
+    pv ${DBPATH} | mysql -uroot -p$(GetRootPassword) ${DBNAME}
   fi
 
-  if [[ -z "$2" ]]; then
-    echo -ne "${RED}Database filepath not provided.${NORMAL}"
-    exit
-  fi
-
-  echo $1
-  echo $2
+  echo -ne "${YELLOW}$DBNAME has been imported successfully."
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
-  exit
 }
 
 function GetRootPassword {
@@ -584,7 +609,7 @@ function BootstrapWebApplication {
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s|PUBLICPATH|$PUBLICPATH|g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
   else
-    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/MAGEMODE/$MAGE_MODE/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   fi
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/main.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s|PUBLICPATH|$PUBLICPATH|g" > $NGINX_CONFDIR/$APPNAME.d/main.conf
   wget "$CAPIMAURL/templates/nginx/$1/$1.d/proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/proxy.conf
@@ -600,6 +625,9 @@ function BootstrapWebApplication {
   # PHP-FPM
   wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
+  if [[ "$1" == "magenx" ]]; then
+    wget "$CAPIMAURL/templates/php/index-before.conf" --quiet -O $MNTWEB/$APPNAME/shared/index-before.php
+  fi
   echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
   echo "" >> $CAPIMA_LOGFILE
@@ -678,6 +706,64 @@ function EnableServices {
   fi
 
   case "$2" in
+    php)
+      case "$3" in
+        55|5.5)
+          if [[ "$OSCODENAME" == 'xenial' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 5.5 FPM service"
+            systemctl enable php55rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        56|5.6)
+          if [[ "$OSCODENAME" == 'xenial' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 5.6 FPM service"
+            systemctl enable php56rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        70|7.0)
+          if [[ "$OSCODENAME" == 'bionic' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 7.0 FPM service"
+            systemctl enable php70rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        71|7.1)
+          if [[ "$OSCODENAME" == 'bionic' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 7.1 FPM service"
+            systemctl enable php71rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        72|7.2)
+          echo -ne "${YELLOW}Enabling PHP 7.2 FPM service"
+          systemctl enable php72rc-fpm.service
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
+        73|7.3)
+          echo -ne "${YELLOW}Enabling PHP 7.3 FPM service"
+          systemctl enable php73rc-fpm.service
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
+        80|8.0)
+          echo -ne "${YELLOW}Enabling PHP 8.0 FPM service"
+          systemctl enable php80rc-fpm.service
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
+        *)
+          echo "${RED}Please choose one version of PHP you would like to enable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3.${NORMAL}"
+          echo "${RED}You might not able to enable all PHP versions, check compatible map in https://capima.nntoan.com.${NORMAL}"
+        ;;
+      esac
+    ;;
     elasticsearch)
       case "$3" in
         5)
@@ -760,7 +846,7 @@ WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
     echo ""
     ;;
     *)
-      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis, mailhog.${NORMAL}"
+      echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis, mailhog, php.${NORMAL}"
     ;;
   esac
 }

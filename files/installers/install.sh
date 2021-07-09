@@ -11,7 +11,7 @@ OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
 SUPPORTEDVERSION="16.04 18.04 20.04"
 PHPCLIVERSION="php74rc"
-INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go petname "
+INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go petname pv "
 
 # Services detection
 SERVICES=$(systemctl --type=service --state=active | grep -E '\.service' | cut -d ' ' -f1 | sed -r 's/.{8}$//' | tr '\n' ' ')
@@ -42,7 +42,7 @@ function FixAutoUpdate() {
     AUTOUPDATEFILE50="/etc/apt/apt.conf.d/50unattended-upgrades"
     AUTOUPDATEFILE20="/etc/apt/apt.conf.d/20auto-upgrades"
 
-    sed -i 's/Unattended-Upgrade::Allowed-Origins {/Unattended-Upgrade::Allowed-Origins {\n        "RunCloud:${distro_codename}";/g' $AUTOUPDATEFILE50
+    sed -i 's/Unattended-Upgrade::Allowed-Origins {/Unattended-Upgrade::Allowed-Origins {\n        "RunCloud:${distro_codename}";\n        "MariaDB:";/g' $AUTOUPDATEFILE50
     ReplaceTrueWholeLine "\"\${distro_id}:\${distro_codename}-security\";" "        \"\${distro_id}:\${distro_codename}-security\";" $AUTOUPDATEFILE50
     ReplaceTrueWholeLine "\/\/Unattended-Upgrade::AutoFixInterruptedDpkg" "Unattended-Upgrade::AutoFixInterruptedDpkg \"true\";" $AUTOUPDATEFILE50
     ReplaceTrueWholeLine "\/\/Unattended-Upgrade::Remove-Unused-Dependencies" "Unattended-Upgrade::Remove-Unused-Dependencies \"true\";" $AUTOUPDATEFILE50
@@ -79,26 +79,26 @@ function BootstrapInstaller {
     curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu xenial main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu xenial main'
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu xenial main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu xenial main'
 
         PIPEXEC="pip"
 
-        INSTALLPACKAGE+="python-pip php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
+        INSTALLPACKAGE+="libmysqlclient20 python-pip php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
     elif [[ "$OSCODENAME" == 'bionic' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu bionic main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu bionic main'
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu bionic main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu bionic main'
 
         PIPEXEC="pip"
 
-        INSTALLPACKAGE+="python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
+        INSTALLPACKAGE+="libmysqlclient20 python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
     elif [[ "$OSCODENAME" == 'focal' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu focal main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu focal main'
+        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu focal main'
+        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu focal main'
 
-        PIPEXEC="pip"
+        PIPEXEC="pip3"
 
-        INSTALLPACKAGE+="python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials dirmngr gnupg libmagic-dev"
+        INSTALLPACKAGE+="libmysqlclient21 python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials dirmngr gnupg libmagic-dev"
     fi
 
     # APT PINNING
@@ -206,6 +206,7 @@ banaction = iptables
 enabled = true
 logpath = %(sshd_log)s
 banaction = iptables-multiport
+filter = sshd
 
 [capima-agent]
 enabled = true
@@ -231,6 +232,9 @@ spawn mysql_secure_installation
 
 expect \"Enter current password for root (enter for none):\"
 send \"\r\"
+
+expect \"Switch to unix_socket authentication\"
+send \"y\r\"
 
 expect \"Change the root password?\"
 send \"y\r\"
