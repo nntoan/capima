@@ -41,6 +41,7 @@ function BootstrapSudoUser {
     echo -ne "Creating contabo user"
     useradd -u 1000 contabo -m -s /bin/bash
     usermod -a -G sudo contabo
+    echo "contabo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/contabo
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
