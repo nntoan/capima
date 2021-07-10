@@ -24,7 +24,8 @@ function BootstrapSSHService() {
     sed -i 's/^PermitRootLogin yes/PermitRootLogin forced-commands-only/'  /etc/ssh/sshd_config;
     sed -i 's/^#AuthorizedKeysFile     .ssh\/authorized_keys .ssh\/authorized_keys2/AuthorizedKeysFile .ssh\/authorized_keys/'  /etc/ssh/sshd_config;
     sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/'  /etc/ssh/sshd_config;
-    echo "\n# Legacy guideliness" >> /etc/ssh/sshd_config;
+    echo "" >> /etc/ssh/sshd_config;
+    echo "# Legacy guideliness" >> /etc/ssh/sshd_config;
     echo "KexAlgorithms diffie-hellman-group-exchange-sha256" >> /etc/ssh/sshd_config;
     echo "Ciphers aes256-ctr,aes192-ctr,aes128-ctr" >> /etc/ssh/sshd_config;
     echo "MACs hmac-sha2-256,hmac-sha2-512" >> /etc/ssh/sshd_config;
