@@ -42,7 +42,7 @@ function BootstrapContaboKeys {
   contabo_user="contabo"
   contabo_key=$(AuthorizedKeys)
   ctb_homedir=$(getent passwd $contabo_user | cut -d ':' -f6)
-  if [[ -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
+  if [[ ! -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
     echo -ne "Adding SSH keys for Contabo user"
     mkdir -p "$ctb_homedir/.ssh"
     echo $contabo_key > "$ctb_homedir/.ssh/authorized_keys"
@@ -51,7 +51,7 @@ function BootstrapContaboKeys {
     echo ""
   fi
 
-  if [[ -f "$homedir/.ssh/authorized_keys" ]]; then
+  if [[ ! -f "$homedir/.ssh/authorized_keys" ]]; then
     echo -ne "Added SSH keys for root user"
     mkdir -p "$homedir/.ssh"
     echo $contabo_key > "$homedir/.ssh/authorized_keys"
