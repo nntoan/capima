@@ -33,6 +33,10 @@ function BootstrapSudoUser {
     usermod -a -G sudo contabo
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
+  else
+    echo -ne "User contabo exists. Skipping.."
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
   fi
 }
 
@@ -43,18 +47,26 @@ function BootstrapContaboKeys {
   contabo_key=$(AuthorizedKeys)
   ctb_homedir=$(getent passwd $contabo_user | cut -d ':' -f6)
   if [[ ! -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
-    echo -ne "Adding SSH keys for Contabo user"
+    echo -ne "Adding SSH pub key for Contabo user"
     mkdir -p "$ctb_homedir/.ssh"
     echo $contabo_key > "$ctb_homedir/.ssh/authorized_keys"
     chown -Rf $contabo_user:$contabo_user "$ctb_homedir/.ssh"
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
+  else
+    echo -ne "SSH pub key (contabo) exists. Skip importing.."
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
   fi
 
   if [[ ! -f "$homedir/.ssh/authorized_keys" ]]; then
-    echo -ne "Added SSH keys for root user"
+    echo -ne "Added SSH pub key for root user"
     mkdir -p "$homedir/.ssh"
     echo $contabo_key > "$homedir/.ssh/authorized_keys"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  else
+    echo -ne "SSH pub key (root) exists. Skip importing.."
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   fi
