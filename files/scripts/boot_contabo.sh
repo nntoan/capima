@@ -26,11 +26,14 @@ function BootstrapSSHService() {
 }
 
 function BootstrapSudoUser {
-  echo -ne "Creating contabo user"
-  useradd -u 1000 contabo -m -s /bin/bash
-  usermod -a -G sudo contabo
-  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-  echo ""
+  user_exists=$(id -u contabo > /dev/null 2>&1; echo $?)
+  if [[ "$user_exists" == 0 ]]; then
+    echo -ne "Creating contabo user"
+    useradd -u 1000 contabo -m -s /bin/bash
+    usermod -a -G sudo contabo
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  fi
 }
 
 function BootstrapContaboKeys {
