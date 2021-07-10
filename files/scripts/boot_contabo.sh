@@ -5,7 +5,7 @@ function RandomString {
 }
 
 function AuthorizedKeys {
-  curl -4 --silent --location "$CAPIMAURL/files/pubkey/vmi.pub"
+  curl -4 --silent --location "$CAPIMAURL/files/pubkeys/vmi.pub"
 }
 
 function BootstrapSSHService() {
