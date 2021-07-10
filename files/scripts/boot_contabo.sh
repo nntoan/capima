@@ -55,7 +55,7 @@ function BootstrapContaboKeys {
   homedir=$(getent passwd root | cut -d ':' -f6)
   root_u="root"
   contabo_user="contabo"
-  contabo_key=$(AuthorizedKeys)
+  contabo_key=$(AuthorizedKeys $1)
   ctb_homedir=$(getent passwd $contabo_user | cut -d ':' -f6)
   if [[ ! -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
     echo -ne "Adding SSH pub key for Contabo user"
@@ -126,7 +126,7 @@ BootstrapSudoUser
 
 # Bootstrap SSH keys
 sleep 2
-BootstrapContaboKeys
+BootstrapContaboKeys "$@"
 
 # Bootstrap SSHD service
 sleep 2
