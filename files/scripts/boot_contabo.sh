@@ -33,6 +33,7 @@ function BootstrapSSHService() {
     echo "AuthenticationMethods publickey" >> /etc/ssh/sshd_config;
     touch $homedir/.sshd_tweaks
     echo $(date +%s) > $homedir/.sshd_tweaks
+    systemctl restart sshd.service
   fi
 }
 
@@ -43,6 +44,7 @@ function BootstrapSudoUser {
     useradd -u 1000 contabo -m -s /bin/bash
     usermod -a -G sudo contabo
     echo "contabo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/contabo
+    runuser -l contabo -c "touch /home/contabo/.sudo_as_admin_successful"
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
