@@ -30,6 +30,7 @@ function BootstrapSudoUser {
   useradd -u 1000 contabo -m -s /bin/bash
   usermod -a -G sudo contabo
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 }
 
 function BootstrapContaboKeys {
@@ -39,14 +40,20 @@ function BootstrapContaboKeys {
   contabo_key=$(AuthorizedKeys)
   ctb_homedir=$(getent passwd $contabo_user | cut -d ':' -f6)
   if [[ -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
+    echo -ne "Adding SSH keys for Contabo user"
     mkdir -p "$ctb_homedir/.ssh"
     echo $contabo_key > "$ctb_homedir/.ssh/authorized_keys"
     chown -Rf $contabo_user:$contabo_user "$ctb_homedir/.ssh"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
   fi
 
   if [[ -f "$homedir/.ssh/authorized_keys" ]]; then
+    echo -ne "Added SSH keys for root user"
     mkdir -p "$homedir/.ssh"
     echo $contabo_key > "$homedir/.ssh/authorized_keys"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
   fi
 }
 
