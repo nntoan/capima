@@ -27,7 +27,7 @@ function BootstrapSSHService() {
 
 function BootstrapSudoUser {
   user_exists=$(id -u contabo > /dev/null 2>&1; echo $?)
-  if [[ "$user_exists" == 0 ]]; then
+  if [[ "$user_exists" == 1 ]]; then
     echo -ne "Creating contabo user"
     useradd -u 1000 contabo -m -s /bin/bash
     usermod -a -G sudo contabo
