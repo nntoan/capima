@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.4
+# VERSION: 1.2.5
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -537,6 +537,7 @@ function ImportDb {
     if [[ -z "$DBNAME" ]]; then
       echo -ne "${RED}No database name entered.${NORMAL}"
       echo ""
+    fi
   done
 
   read -r -p "${BLUE}Please enter the local filepath of database:${NORMAL} " DBPATH
