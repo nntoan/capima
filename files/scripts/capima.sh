@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.5
+# VERSION: 1.2.6
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -35,6 +35,7 @@ OSCODENAME=`lsb_release -s -c`
 USER="capima"
 HOMEDIR=$(getent passwd $USER | cut -d ':' -f6 | sed 's/\/*$//g')
 WEBAPP_STACK=""
+MAGE_MODE=""
 APPNAME="$$$"
 DBNAME="$$$"
 APPDOMAINS=""
@@ -57,7 +58,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.4"
+readonly VERSION="1.2.6"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -84,6 +85,9 @@ function main {
     ;;
     enable)
       EnableServices "$@"
+    ;;
+    disable)
+      DisableServices "$@"
     ;;
     restart)
       RestartServices "$@"
@@ -127,8 +131,11 @@ function WebAppsManagement {
         delete|remove|del|d)
           DeleteWebApp
         ;;
+        list|ls)
+          ListWebApps
+        ;;
         *)
-          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d) or type 'exit' (q, x) to quit.${NORMAL}"
+          echo "${RED}Unknown response, please select an action you would like to take: add(a), update(u), delete(d), list(ls) or type 'exit' (q, x) to quit.${NORMAL}"
         ;;
       esac
     done
@@ -143,8 +150,11 @@ function WebAppsManagement {
       delete)
         DeleteWebApp
       ;;
+      list|ls)
+        ListWebApp
+      ;;
       *)
-        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete.${NORMAL}"
+        echo "${RED}Unknown action, please try again with one of the following action: add, update, delete, list.${NORMAL}"
       ;;
     esac
   fi
@@ -438,6 +448,10 @@ function CreateNewWebApp {
   exit
 }
 
+function ListWebApp {
+  echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
+}
+
 function UpdateWebApp {
   echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
 }
@@ -454,10 +468,12 @@ function DeleteWebApp {
   done
 
   echo -ne "${YELLOW}Please wait, we are removing your web application...${NORMAL}"
+  rm -rf $MNTWEB/$appname 2>&1
   rm -rf $WEBAPP_DIR/$appname 2>&1
   rm -rf $NGINX_CONFDIR/$appname.conf 2>&1
   rm -rf $NGINX_CONFDIR/$appname.ssl.conf 2>&1
   rm -rf $NGINX_CONFDIR/$appname.d 2>&1
+  rm -rf $NGINX_EXTRA_CONFDIR/$appname*.conf 2>&1
   rm -rf $APACHE_CONFDIR/$appname.conf 2>&1
   rm -rf /etc/php*rc/fpm.d/$appname.conf 2>&1
   rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
@@ -627,7 +643,7 @@ function BootstrapWebApplication {
   wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
   if [[ "$1" == "magenx" ]]; then
-    wget "$CAPIMAURL/templates/php/index-before.conf" --quiet -O $MNTWEB/$APPNAME/shared/index-before.php
+    wget "$CAPIMAURL/templates/php/index-before.conf" --quiet -O $MNTWEB/$APPNAME/deploy/shared/index-before.php
   fi
   echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
@@ -935,7 +951,7 @@ function GetWebAppInfo {
       fi
     done
   else
-    echo "${RED}Sorry, we unable to detect your webapps. Please change directory to your webapp then try again.${NORMAL}"
+    echo "${RED}Sorry, we unable to detect your webapp. Please change directory to your webapp then try again.${NORMAL}"
   fi
 }
 
@@ -1071,9 +1087,9 @@ function Usage {
 
       echo "${YELLOW}Available commands:${NORMAL}"
       echo ${GREEN} "web${NORMAL}              Webapps management panel (add/update/delete)."
-      echo ${GREEN} "db${NORMAL}               Databases management panel (add/update/delete)."
+      echo ${GREEN} "db${NORMAL}               Databases management panel (add/import/delete)."
       echo ${GREEN} "use${NORMAL}              Switch between version of PHP-CLI."
-      echo ${GREEN} "enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
+      echo ${GREEN} "enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog, php)."
       echo ${GREEN} "restart${NORMAL}          Restart Capima service(s)."
       echo ${GREEN} "info${NORMAL}             Show webapps information (under development)."
       echo ${GREEN} "logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
@@ -1100,9 +1116,9 @@ function Usage {
 
       echo "Available commands:"
       echo " web${NORMAL}              Webapps management panel (add/update/delete)."
-      echo " db${NORMAL}               Databases management panel (add/update/delete)."
+      echo " db${NORMAL}               Databases management panel (add/import/delete)."
       echo " use${NORMAL}              Switch between version of PHP-CLI."
-      echo " enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog)."
+      echo " enable${NORMAL}           Enable optional services (elasticsearch, redis, mailhog, php)."
       echo " restart${NORMAL}          Restart Capima services."
       echo " info${NORMAL}             Show webapps information (under development)."
       echo " logs${NORMAL}             Tail the last 200 lines of logfile (apache,fpm,nginx)."
