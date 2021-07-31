@@ -64,7 +64,7 @@ function BootstrapContaboKeys {
   if [[ ! -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
     echo -ne "Deploying internal SSH public keys [contabo]";
     runuser -l contabo -c "mkdir -p ${ctb_homedir}/.ssh;";
-    runuser -l contabo -c "aws s3 cp ${pubkey} ${ctb_homedir}/.ssh";
+    runuser -l contabo -c "aws s3 cp ${pubkey} ${ctb_homedir}/.ssh --quiet --only-show-errors --no-progress";
     runuser -l contabo -c "cat ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub >> ${ctb_homedir}/.ssh/authorized_keys";
     rm -rf ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub;
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
@@ -78,7 +78,7 @@ function BootstrapContaboKeys {
   if [[ ! -f "$homedir/.ssh/authorized_keys" ]]; then
     echo -ne "Deploying internal SSH public keys [root]"
     mkdir -p "$homedir/.ssh"
-    aws s3 cp "$pubkey" "$homedir/.ssh"
+    aws s3 cp "$pubkey" "$homedir/.ssh" --quiet --only-show-errors --no-progress
     cat "${homedir}/.ssh/vmi${INSTANCE_ID}.pub" >> $homedir/.ssh/authorized_keys
     rm -rf "${homedir}/.ssh/vmi${INSTANCE_ID}.pub";
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
