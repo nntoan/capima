@@ -92,13 +92,24 @@ function BootstrapContaboKeys {
 
 function BootstrapAwsCli {
   # Install required tools
-  echo "Updating apt, installing software:"
-  apt-get -qq update && apt-get -qq install apt-transport-https ca-certificates curl gnupg lsb_release ruby jq awscli -y
+  echo -ne "Updating apt, installing software"
+  apt-get -qq update && apt-get -qq install apt-transport-https ca-certificates curl gnupg ruby jq awscli -y
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 
   # Set up variables
-  touch /etc/profile.d/awscreds.sh
-  echo "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> /etc/profile.d/awscreds.sh
-  echo "export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> /etc/profile.d/awscreds.sh
+  if [[ ! -f "/etc/profile.d/awscreds.sh" ]]; then
+    echo -ne "Deploying AWS credentials"
+    touch /etc/profile.d/awscreds.sh
+    echo "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> /etc/profile.d/awscreds.sh
+    echo "export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> /etc/profile.d/awscreds.sh
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  else
+    echo -ne "AWS credentials configured. Skip deploying.."
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  fi
 
   source /etc/profile
 }
