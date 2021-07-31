@@ -1,2 +1,4 @@
 files/installers/*-installer.sh
 files/scripts/boot_*.sh
+files/scripts/contabo/*.sh
+files/scripts/aws/*.sh

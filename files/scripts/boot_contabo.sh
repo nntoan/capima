@@ -4,11 +4,11 @@ function RandomString {
   head /dev/urandom | tr -dc '_$!*&%#A-Za-z0-9' | head -c14
 }
 
-function AuthorizedKeys {
-  if [[ -z "$1" ]]; then
-    curl -4 --silent --location "$CAPIMAURL/files/pubkeys/vmi.pub"
+function GetContaboKeyS3Uri {
+  if [[ -z "$INSTANCE_ID" ]]; then
+    echo "s3://$CONTABO_BOOTBUCKET/keys/vmi.pub"
   else
-    curl -4 --silent --location "$CAPIMAURL/files/pubkeys/vmi${1}.pub"
+    echo "s3://$CONTABO_BOOTBUCKET/keys/vmi${INSTANCE_ID}.pub"
   fi
 }
 
@@ -58,32 +58,49 @@ function BootstrapContaboKeys {
   homedir=$(getent passwd root | cut -d ':' -f6)
   root_u="root"
   contabo_user="contabo"
-  contabo_key=$(AuthorizedKeys $1)
+  pubkey=$(GetContaboKeyS3Uri $INSTANCE_ID)
   ctb_homedir=$(getent passwd $contabo_user | cut -d ':' -f6)
+
   if [[ ! -f "$ctb_homedir/.ssh/authorized_keys" ]]; then
-    echo -ne "Adding SSH pub key for Contabo user"
-    mkdir -p "$ctb_homedir/.ssh"
-    echo $contabo_key > "$ctb_homedir/.ssh/authorized_keys"
-    chown -Rf $contabo_user:$contabo_user "$ctb_homedir/.ssh"
+    echo -ne "Deploying internal SSH public keys [contabo]";
+    runuser -l contabo -c "mkdir -p ${ctb_homedir}/.ssh;";
+    runuser -l contabo -c "aws s3 cp ${pubkey} ${ctb_homedir}/.ssh";
+    runuser -l contabo -c "cat ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub >> ${ctb_homedir}/.ssh/authorized_keys";
+    rm -rf ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub;
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
-    echo -ne "SSH pub key (contabo) exists. Skip importing.."
+    echo -ne "SSH pub key (contabo) exists. Skip deploying.."
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   fi
 
   if [[ ! -f "$homedir/.ssh/authorized_keys" ]]; then
-    echo -ne "Added SSH pub key for root user"
+    echo -ne "Deploying internal SSH public keys [root]"
     mkdir -p "$homedir/.ssh"
-    echo $contabo_key > "$homedir/.ssh/authorized_keys"
+    aws s3 cp "$pubkey" "$homedir/.ssh"
+    cat "${homedir}/.ssh/vmi${INSTANCE_ID}.pub" >> $homedir/.ssh/authorized_keys
+    rm -rf "${homedir}/.ssh/vmi${INSTANCE_ID}.pub";
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
-    echo -ne "SSH pub key (root) exists. Skip importing.."
+    echo -ne "SSH pub key (root) exists. Skip deploying.."
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   fi
+}
+
+function BootstrapAwsCli {
+  # Install required tools
+  echo "Updating apt, installing software:"
+  apt-get -qq update && apt-get -qq install apt-transport-https ca-certificates curl gnupg lsb_release ruby jq awscli -y
+
+  # Set up variables
+  touch /etc/profile.d/awscreds.sh
+  echo "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> /etc/profile.d/awscreds.sh
+  echo "export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> /etc/profile.d/awscreds.sh
+
+  source /etc/profile
 }
 
 function CheckingRemoteAccessible {
@@ -106,13 +123,12 @@ echo -ne "\n
     fi
 }
 
+# Set variables
+INSTANCE_ID="$1"
+AWS_ACCESS_KEY_ID="$2"
+AWS_SECRET_ACCESS_KEY="$3"
 CAPIMAURL="https://capima.nntoan.com"
-
-locale-gen en_US en_US.UTF-8
-
-export LANGUAGE=en_US.utf8
-export LC_ALL=en_US.utf8
-export DEBIAN_FRONTEND=noninteractive
+CONTABO_BOOTBUCKET="contabo.bootscripts"
 
 # Checker
 if [[ $EUID -ne 0 ]]; then
@@ -126,6 +142,10 @@ CheckingRemoteAccessible
 
 # Bootstrap users
 BootstrapSudoUser
+
+# Bootstrap AWS
+sleep 2
+BootstrapAwsCli "$@"
 
 # Bootstrap SSH keys
 sleep 2
