@@ -23,7 +23,7 @@ Hardware requirement
 * At least 2 core processor
 * 2048MB minimum RAM
 
-*Highly recommend* to spin up your first Capima server with [Contabo](https://contabo.com). A promise of German quality at incredible prices. Check all plans here: https://contabo.com/en/vps.
+*Highly recommend* to spin up your first Capima server with [Contabo VPS](https://contabo.com/en/vps/?utm_source=cj&utm_medium=affiliate&utm_campaign=vps) - a promise of German quality at incredible prices. Check all plans here: https://contabo.com/en/vps.
 
 ## What's installed with Capima?
 
