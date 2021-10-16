@@ -8,7 +8,7 @@ function GetContaboKeyS3Uri {
   if [[ -z "$INSTANCE_ID" ]]; then
     echo "s3://$CONTABO_BOOTBUCKET/keys/vmi.pub"
   else
-    echo "s3://$CONTABO_BOOTBUCKET/keys/vmi${INSTANCE_ID}.pub"
+    echo "s3://$CONTABO_BOOTBUCKET/keys/${INSTANCE_ID}.pub"
   fi
 }
 
@@ -65,8 +65,8 @@ function BootstrapContaboKeys {
     echo -ne "Deploying internal SSH public keys [contabo]";
     runuser -l contabo -c "mkdir -p ${ctb_homedir}/.ssh;";
     runuser -l contabo -c "aws s3 cp ${pubkey} ${ctb_homedir}/.ssh --quiet --only-show-errors --no-progress";
-    runuser -l contabo -c "cat ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub >> ${ctb_homedir}/.ssh/authorized_keys";
-    rm -rf ${ctb_homedir}/.ssh/vmi${INSTANCE_ID}.pub;
+    runuser -l contabo -c "cat ${ctb_homedir}/.ssh/${INSTANCE_ID}.pub >> ${ctb_homedir}/.ssh/authorized_keys";
+    rm -rf ${ctb_homedir}/.ssh/${INSTANCE_ID}.pub;
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
@@ -79,8 +79,9 @@ function BootstrapContaboKeys {
     echo -ne "Deploying internal SSH public keys [root]"
     mkdir -p "$homedir/.ssh"
     aws s3 cp "$pubkey" "$homedir/.ssh" --quiet --only-show-errors --no-progress
-    cat "${homedir}/.ssh/vmi${INSTANCE_ID}.pub" >> $homedir/.ssh/authorized_keys
-    rm -rf "${homedir}/.ssh/vmi${INSTANCE_ID}.pub";
+    printf "no-port-forwarding,no-agent-forwarding,no-X11-forwarding,command=\"echo 'Please login as the user \"contabo\" rather than the user \"root\".';echo;sleep 10\" " > $homedir/.ssh/authorized_keys
+    cat "${homedir}/.ssh/${INSTANCE_ID}.pub" >> $homedir/.ssh/authorized_keys
+    rm -rf "${homedir}/.ssh/${INSTANCE_ID}.pub";
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
   else
@@ -135,9 +136,17 @@ echo -ne "\n
 }
 
 # Set variables
-INSTANCE_ID="$1"
-AWS_ACCESS_KEY_ID="$2"
-AWS_SECRET_ACCESS_KEY="$3"
+HOSTNAME_RAW=$(cat /etc/hostname)
+HOSTNAME_ARR=(${HOSTNAME_RAW//./ })
+if [[ -z "$1" ]]; then
+  INSTANCE_ID="${HOSTNAME_ARR[0]}"
+  AWS_ACCESS_KEY_ID="$1"
+  AWS_SECRET_ACCESS_KEY="$2"
+else
+  INSTANCE_ID="$1"
+  AWS_ACCESS_KEY_ID="$2"
+  AWS_SECRET_ACCESS_KEY="$3"
+fi
 CAPIMAURL="https://capima.nntoan.com"
 CONTABO_BOOTBUCKET="contabo.bootscripts"
 
