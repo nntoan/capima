@@ -623,9 +623,8 @@ function BootstrapWebApplication {
 
   # Magento 2
   if [[ "$1" == "magenx" ]]; then
-    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s|PUBLICPATH|$PUBLICPATH|g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
+    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s/MAGEMODE/$MAGE_MODE;s|HOMEDIR|$HOMEDIR|g;s|PUBLICPATH|$PUBLICPATH|g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/domain_mapping.conf" --quiet -O - | sed "s/APPDOMAIN/${APPDOMAINS_CRT[0]}/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.domain_mapping.conf
-    wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/MAGEMODE/$MAGE_MODE/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   else
     wget "$CAPIMAURL/templates/nginx/$1/$1.d/headers.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_CONFDIR/$APPNAME.d/headers.conf
   fi
