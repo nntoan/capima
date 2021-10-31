@@ -138,15 +138,9 @@ echo -ne "\n
 # Set variables
 HOSTNAME_RAW=$(cat /etc/hostname)
 HOSTNAME_ARR=(${HOSTNAME_RAW//./ })
-if [[ -z "$1" ]]; then
-  INSTANCE_ID="${HOSTNAME_ARR[0]}"
-  AWS_ACCESS_KEY_ID="$1"
-  AWS_SECRET_ACCESS_KEY="$2"
-else
-  INSTANCE_ID="$1"
-  AWS_ACCESS_KEY_ID="$2"
-  AWS_SECRET_ACCESS_KEY="$3"
-fi
+INSTANCE_ID="${HOSTNAME_ARR[0]}"
+AWS_ACCESS_KEY_ID="$1"
+AWS_SECRET_ACCESS_KEY="$2"
 CAPIMAURL="https://capima.nntoan.com"
 CONTABO_BOOTBUCKET="contabo.bootscripts"
 
