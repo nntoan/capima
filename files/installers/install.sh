@@ -349,7 +349,6 @@ function BootstrapFirewall {
 <zone>
   <short>Capima</short>
   <description>Default zone to use with Capima Server</description>
-  <service name=\"rcsa\"/>
   <service name=\"dhcpv6-client\"/>
   <port protocol=\"tcp\" port=\"22\"/>
   <port protocol=\"tcp\" port=\"80\"/>
