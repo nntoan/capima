@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.9
+# VERSION: 1.3.0
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -58,7 +58,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.9"
+readonly VERSION="1.3.0"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -446,19 +446,19 @@ function CreateNewWebApp {
         PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
-    7.4|74|*)
+    7.4|74)
       PHP_VERSION="php74rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
-    8.0|80|*)
+    8.0|80)
       PHP_VERSION="php80rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
-    8.1|81|*)
+    8.1|81)
       PHP_VERSION="php81rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
-    8.2|82|*)
+    8.2|82)
       PHP_VERSION="php82rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
