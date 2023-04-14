@@ -14,7 +14,7 @@ Before you can use Capima, please make sure your server fulfils these requiremen
 
 Software requirement
 
-* Ubuntu 16.04/18.04/20.04 x86_64 LTS (Fresh installation)
+* Ubuntu 16.04/18.04/20.04/22.04 x86_64 LTS (Fresh installation)
 * If the server is virtual (VPS), OpenVZ may not be supported (Kernel 2.6)
 
 Hardware requirement
@@ -34,19 +34,22 @@ Hardware requirement
   * 5.6 (only available in 16.04)
   * 7.0 (only available in 18.04)
   * 7.1 (only available in 18.04)
-  * 7.2
-  * 7.3
+  * 7.2 (only available in 20.04)
+  * 7.3 (only available in 20.04)
   * 7.4
+  * 8.1
+  * 8.2
 * MariaDB 10.4
+  * 10.6 (available in 22.04)
   * Performance optimised for general purposes.
-* Node.js LTS (12.x)
+* Node.js LTS (14.x)
 * Python
-  * Python 3 if Ubuntu 20.04.
+  * Python 3 if Ubuntu 20.04 and above.
 * Redis (can be enabled later by CLI)
 * ElasticSearch (can be enabled later by CLI)
   * 5.x if Ubuntu 16.04
   * 6.x if Ubuntu 18.04
-  * 7.x if Ubuntu 20.04 
+  * 7.x if Ubuntu 20.04
 * MailHog (can be enabled later by CLI)
 * Postfix
 * Memcached (disabled by default)

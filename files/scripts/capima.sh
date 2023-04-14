@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.2.8
+# VERSION: 1.2.9
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -58,7 +58,7 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.2.8"
+readonly VERSION="1.2.9"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -427,15 +427,39 @@ function CreateNewWebApp {
       fi
       ;;
     7.2|72)
-      PHP_VERSION="php72rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'focal' ]]; then
+        PHP_VERSION="php72rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     7.3|73)
-      PHP_VERSION="php73rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      if [[ "$OSCODENAME" == 'focal' ]]; then
+        PHP_VERSION="php73rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        PHP_VERSION="php74rc"
+        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      fi
       ;;
     7.4|74|*)
       PHP_VERSION="php74rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    8.0|80|*)
+      PHP_VERSION="php80rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    8.1|81|*)
+      PHP_VERSION="php81rc"
+      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+      ;;
+    8.2|82|*)
+      PHP_VERSION="php82rc"
       PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       ;;
   esac
@@ -488,10 +512,15 @@ function DeleteWebApp {
   elif [[ "$OSCODENAME" == 'bionic' ]]; then
     systemctl restart php70rc-fpm.service
     systemctl restart php71rc-fpm.service
+  elif [[ "$OSCODENAME" == 'focal' ]]; then
+    systemctl restart php72rc-fpm.service
+    systemctl restart php73rc-fpm.service
   fi
-  systemctl restart php72rc-fpm.service
-  systemctl restart php73rc-fpm.service
   systemctl restart php74rc-fpm.service
+  systemctl restart php80rc-fpm.service
+  systemctl restart php81rc-fpm.service
+  systemctl restart php82rc-fpm.service
+
   echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 
@@ -643,7 +672,7 @@ function BootstrapWebApplication {
   wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
   wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
   if [[ "$1" == "magenx" ]]; then
-    wget "$CAPIMAURL/templates/php/index-before.conf" --quiet -O $MNTWEB/$APPNAME/deploy/shared/index-before.php
+    wget "$CAPIMAURL/templates/php/magento-vars.conf" --quiet -O $MNTWEB/$APPNAME/deploy/shared/magento-vars.php
   fi
   echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
@@ -688,13 +717,30 @@ function SwitchPhpCliVersion {
       fi
     ;;
     7.2|72)
-      ln -sf /RunCloud/Packages/php72rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'focal' ]]; then
+        ln -sf /RunCloud/Packages/php72rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     7.3|73)
-      ln -sf /RunCloud/Packages/php73rc/bin/php /usr/bin/php
+      if [[ "$OSCODENAME" == 'focal' ]]; then
+        ln -sf /RunCloud/Packages/php73rc/bin/php /usr/bin/php
+      else
+        use_default=1
+      fi
     ;;
     7.4|74)
       ln -sf /RunCloud/Packages/php74rc/bin/php /usr/bin/php
+    ;;
+    8.0|80)
+      ln -sf /RunCloud/Packages/php80rc/bin/php /usr/bin/php
+    ;;
+    8.1|81)
+      ln -sf /RunCloud/Packages/php81rc/bin/php /usr/bin/php
+    ;;
+    8.2|82)
+      ln -sf /RunCloud/Packages/php82rc/bin/php /usr/bin/php
     ;;
     *)
       use_default=1
@@ -758,16 +804,20 @@ function EnableServices {
           fi
         ;;
         72|7.2)
-          echo -ne "${YELLOW}Enabling PHP 7.2 FPM service"
-          systemctl enable php72rc-fpm.service
-          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-          echo ""
+          if [[ "$OSCODENAME" == 'focal' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 7.2 FPM service"
+            systemctl enable php72rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
         ;;
         73|7.3)
-          echo -ne "${YELLOW}Enabling PHP 7.3 FPM service"
-          systemctl enable php73rc-fpm.service
-          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-          echo ""
+          if [[ "$OSCODENAME" == 'focal' ]]; then
+            echo -ne "${YELLOW}Enabling PHP 7.3 FPM service"
+            systemctl enable php73rc-fpm.service
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
         ;;
         80|8.0)
           echo -ne "${YELLOW}Enabling PHP 8.0 FPM service"
@@ -775,8 +825,20 @@ function EnableServices {
           echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
           echo ""
         ;;
+        81|8.1)
+          echo -ne "${YELLOW}Enabling PHP 8.1 FPM service"
+          systemctl enable php81rc-fpm.service
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
+        82|8.2)
+          echo -ne "${YELLOW}Enabling PHP 8.2 FPM service"
+          systemctl enable php82rc-fpm.service
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
         *)
-          echo "${RED}Please choose one version of PHP you would like to enable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3.${NORMAL}"
+          echo "${RED}Please choose one version of PHP you would like to enable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3, 8.0, 8.1, 8.2.${NORMAL}"
           echo "${RED}You might not able to enable all PHP versions, check compatible map in https://capima.nntoan.com.${NORMAL}"
         ;;
       esac
@@ -836,14 +898,21 @@ function EnableServices {
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
         systemctl restart php70rc-fpm.service
         systemctl restart php71rc-fpm.service
+      elif [[ "$OSCODENAME" == 'focal' ]]; then
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
+        echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
+        systemctl restart php72rc-fpm.service
+        systemctl restart php73rc-fpm.service
       fi
 
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
-      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php74rc/conf.d/z-mailhog.ini
-      systemctl restart php72rc-fpm.service
-      systemctl restart php73rc-fpm.service
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php80rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php81rc/conf.d/z-mailhog.ini
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php82rc/conf.d/z-mailhog.ini
       systemctl restart php74rc-fpm.service
+      systemctl restart php80rc-fpm.service
+      systemctl restart php81rc-fpm.service
+      systemctl restart php82rc-fpm.service
 
       echo "[Unit]
 Description=MailHog Service
@@ -883,10 +952,14 @@ function RestartServices {
       elif [[ "$OSCODENAME" == 'bionic' ]]; then
         systemctl restart php70rc-fpm.service
         systemctl restart php71rc-fpm.service
+      elif [[ "$OSCODENAME" == 'focal' ]]; then
+        systemctl restart php72rc-fpm.service
+        systemctl restart php73rc-fpm.service
       fi
-      systemctl restart php72rc-fpm.service
-      systemctl restart php73rc-fpm.service
       systemctl restart php74rc-fpm.service
+      systemctl restart php80rc-fpm.service
+      systemctl restart php81rc-fpm.service
+      systemctl restart php82rc-fpm.service
     ;;
     elastic)
       systemctl restart elasticsearch.service
@@ -906,10 +979,14 @@ function RestartServices {
       elif [[ "$OSCODENAME" == 'bionic' ]]; then
         systemctl restart php70rc-fpm.service
         systemctl restart php71rc-fpm.service
+      elif [[ "$OSCODENAME" == 'focal' ]]; then
+        systemctl restart php72rc-fpm.service
+        systemctl restart php73rc-fpm.service
       fi
-      systemctl restart php72rc-fpm.service
-      systemctl restart php73rc-fpm.service
       systemctl restart php74rc-fpm.service
+      systemctl restart php80rc-fpm.service
+      systemctl restart php81rc-fpm.service
+      systemctl restart php82rc-fpm.service
       systemctl restart elasticsearch.service
       systemctl restart redis-server.service
       if [[ -f "/etc/systemd/system/mailhog.service" ]]; then

@@ -9,7 +9,7 @@
 OSNAME=`lsb_release -s -i`
 OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
-SUPPORTEDVERSION="16.04 18.04 20.04"
+SUPPORTEDVERSION="16.04 18.04 20.04 22.04"
 PHPCLIVERSION="php74rc"
 INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go petname pv "
 
@@ -67,38 +67,48 @@ function BootstrapInstaller {
     apt-get install software-properties-common apt-transport-https -y
 
     # Install Key
-    # RunCloud
-    wget -qO - https://release.runcloud.io/runcloud.key | apt-key add -
-    # MariaDB
-    apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
+    if [[ "$OSCODENAME" == 'xenial' ]]; then
+      # RunCloud
+      wget -qO - https://release.runcloud.io/runcloud.key | apt-key add -
+      # MariaDB
+      apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc'
+    else
+      # RunCloud
+      curl -o /etc/apt/trusted.gpg.d/runcloud_release_key.asc "https://release.runcloud.io/runcloud.key"
+      # MariaDB
+      curl -o /etc/apt/trusted.gpg.d/mariadb_release_signing_key.asc 'https://mariadb.org/mariadb_release_signing_key.asc'
+    fi
 
     # Install RunCloud Source List
     echo "deb [arch=amd64] https://release.runcloud.io/ $OSCODENAME main" > /etc/apt/sources.list.d/runcloud.list
 
     # LTS version nodejs
-    curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+    curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu xenial main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu xenial main'
+        add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.4/ubuntu xenial main'
 
         PIPEXEC="pip"
 
-        INSTALLPACKAGE+="libmysqlclient20 python-pip php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
+        INSTALLPACKAGE+="libmysqlclient20 python-pip php55rc php55rc-essentials php56rc php56rc-essentials php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials"
     elif [[ "$OSCODENAME" == 'bionic' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu bionic main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu bionic main'
+        add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.4/ubuntu bionic main'
 
         PIPEXEC="pip"
 
-        INSTALLPACKAGE+="libmysqlclient20 python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials"
+        INSTALLPACKAGE+="libmysqlclient20 python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials"
     elif [[ "$OSCODENAME" == 'focal' ]]; then
-        add-apt-repository 'deb [arch=amd64] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu focal main'
-        add-apt-repository 'deb [arch=amd64] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu focal main'
+        add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.4/ubuntu focal main'
 
         PIPEXEC="pip3"
 
-        INSTALLPACKAGE+="libmysqlclient21 python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials dirmngr gnupg libmagic-dev"
+        INSTALLPACKAGE+="libmysqlclient21 python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials dirmngr gnupg libmagic-dev"
+    elif [[ "$OSCODENAME" == 'jammy' ]]; then
+        add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.6/ubuntu jammy main'
+
+        PIPEXEC="pip3"
+
+        INSTALLPACKAGE+="libmysqlclient21 python3-pip php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials dirmngr gnupg libmagic-dev libonig5"
     fi
 
     # APT PINNING
@@ -291,6 +301,8 @@ password=$ROOTPASS
 }
 
 function BootstrapWebApplication {
+    sed -i "s/DIR_MODE=.*/DIR_MODE=0755/g" /etc/adduser.conf
+
     USER="capima"
     CAPIMAPASSWORD=$(RandomString)
     HOMEDIR="/srv/users/$USER"
