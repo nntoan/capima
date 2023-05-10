@@ -37,6 +37,7 @@ Hardware requirement
   * 7.2 (only available in 20.04)
   * 7.3 (only available in 20.04)
   * 7.4
+  * 8.0
   * 8.1
   * 8.2
 * MariaDB 10.4
