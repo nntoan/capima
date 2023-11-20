@@ -377,6 +377,14 @@ function BootstrapFirewall {
 function InstallComposer {
     ln -s /RunCloud/Packages/$PHPCLIVERSION/bin/php /usr/bin/php
 
+    if [[ "$OSCODENAME" == 'jammy' ]]; then
+      local baseUrl='http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl'
+      local fileName=`curl -L -s http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/\?C\=M\;O\=D | grep "libssl1.1_1.1.1f-1ubuntu" | grep "amd64" | sed -r 's/.*href="([^"]+).*/\1/g' |
+head -n1`
+      wget -4 "$baseUrl/$fileName" -O $fileName
+      dpkg -i $fileName
+    fi
+
     source /etc/profile.d/capimapath.sh
     # php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
     wget -4 https://getcomposer.org/installer -O composer-setup.php
