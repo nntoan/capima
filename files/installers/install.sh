@@ -389,9 +389,10 @@ head -n1`
     # php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
     wget -4 https://getcomposer.org/installer -O composer-setup.php
     php composer-setup.php
-    php -r "unlink('composer-setup.php');"
     mv composer.phar /usr/sbin/composer
-
+    php composer-setup.php --1
+    mv composer.phar /usr/sbin/composer-v1
+    php -r "unlink('composer-setup.php');"
 }
 
 function RegisterPathAndTweak {
