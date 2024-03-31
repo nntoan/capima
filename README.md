@@ -40,10 +40,11 @@ Hardware requirement
   * 8.0
   * 8.1
   * 8.2
+  * 8.3
 * MariaDB 10.4
   * 10.6 (available in 22.04)
   * Performance optimised for general purposes.
-* Node.js LTS (14.x)
+* Node.js LTS (18.x)
 * Python
   * Python 3 if Ubuntu 20.04 and above.
 * Redis (can be enabled later by CLI)
@@ -100,7 +101,7 @@ Available commands:
  self-update      Check latest version and performing self-update.
 ```
 
-Please note that you will need to switch to `capima` user in order to work with your app files.
+Please note that you will need to switch to `capima` user in order to work with your webapps.
 
 ```bash
 $ sudo su - capima

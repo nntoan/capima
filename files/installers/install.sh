@@ -11,7 +11,7 @@ OSVERSION=`lsb_release -s -r`
 OSCODENAME=`lsb_release -s -c`
 SUPPORTEDVERSION="16.04 18.04 20.04 22.04"
 PHPCLIVERSION="php74rc"
-INSTALLPACKAGE="nginx-rc apache2-rc curl git wget mariadb-server expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq golang-go petname pv "
+INSTALLPACKAGE="nginx-rc apache2-rc mydumper-rc curl git wget mariadb-server nodejs expect nano openssl redis-server python-setuptools perl zip unzip net-tools bc fail2ban augeas-tools libaugeas0 augeas-lenses firewalld build-essential acl memcached beanstalkd passwd unattended-upgrades postfix nodejs make jq cron golang-go petname pv "
 
 # Services detection
 SERVICES=$(systemctl --type=service --state=active | grep -E '\.service' | cut -d ' ' -f1 | sed -r 's/.{8}$//' | tr '\n' ' ')
@@ -57,6 +57,21 @@ function FixAutoUpdate() {
     echo "APT::Periodic::Unattended-Upgrade \"1\";" >> $AUTOUPDATEFILE20
 }
 
+function WaitForAPT() {
+        while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1; do
+                echo "Waiting on apt.."
+                sleep 2
+        done
+    apt-get update
+    apt-get install netcat-openbsd -y
+}
+
+function DisableUFW() {
+    if ufw status &>/dev/null; then
+        ufw disable
+    fi
+}
+
 function BootstrapServer {
     apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
 }
@@ -65,6 +80,10 @@ function BootstrapInstaller {
     rm -f /etc/apt/apt.conf.d/50unattended-upgrades.ucf-dist
 
     apt-get install software-properties-common apt-transport-https -y
+
+    if [[ "$OSCODENAME" == 'xenial' ]]; then
+        apt-get install gnupg-curl -y
+    fi
 
     # Install Key
     if [[ "$OSCODENAME" == 'xenial' ]]; then
@@ -83,7 +102,11 @@ function BootstrapInstaller {
     echo "deb [arch=amd64] https://release.runcloud.io/ $OSCODENAME main" > /etc/apt/sources.list.d/runcloud.list
 
     # LTS version nodejs
-    curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+    apt-get install -y ca-certificates curl gnupg
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+    NODE_MAJOR=18
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
     if [[ "$OSCODENAME" == 'xenial' ]]; then
         add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.4/ubuntu xenial main'
@@ -108,7 +131,7 @@ function BootstrapInstaller {
 
         PIPEXEC="pip3"
 
-        INSTALLPACKAGE+="libmysqlclient21 python3-pip php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials dirmngr gnupg libmagic-dev libonig5"
+        INSTALLPACKAGE+="libmysqlclient21 python3-pip php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials php83rc php83rc-essentials dirmngr gnupg libmagic-dev libonig5"
     fi
 
     # APT PINNING
@@ -209,12 +232,14 @@ maxretry = 5
 [sshd]
 enabled = true
 logpath = %(sshd_log)s
+backend = systemd
 port = 22
 banaction = iptables
 
 [sshd-ddos]
 enabled = true
 logpath = %(sshd_log)s
+backend = systemd
 banaction = iptables-multiport
 filter = sshd
 
@@ -278,24 +303,43 @@ expect eof
 # save
 # EOF
 
-/usr/bin/augtool -I /tmp/lens/ <<EOF
-set /files/etc/mysql/my.cnf/target[ . = "client" ]/user root
-set /files/etc/mysql/my.cnf/target[ . = "client" ]/password $ROOTPASS
-set /files/etc/mysql/my.cnf/target[ . = "mysqld" ]/bind-address 0.0.0.0
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/innodb_file_per_table 1
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/max_connections 15554
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_size 80M
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_type 1
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_limit 2M
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_min_res_unit 2k
-set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/thread_cache_size 60
-save
-EOF
+# /usr/bin/augtool -I /tmp/lens/ <<EOF
+# set /files/etc/mysql/my.cnf/target[ . = "client" ]/user root
+# set /files/etc/mysql/my.cnf/target[ . = "client" ]/password $ROOTPASS
+# set /files/etc/mysql/my.cnf/target[ . = "mysqld" ]/bind-address 0.0.0.0
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/innodb_file_per_table 1
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/max_connections 15554
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_size 80M
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_type 1
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_limit 2M
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/query_cache_min_res_unit 2k
+# set /files/etc/mysql/conf.d/mariadb.cnf/target[ . = "mysqld" ]/thread_cache_size 60
+# save
+# EOF
 
 echo "[client]
 user=root
 password=$ROOTPASS
 " > /etc/mysql/conf.d/root.cnf
+
+echo "[mysqld]
+local-infile=0
+innodb_file_per_table=1
+max_allowed_packet=64M
+query_cache_limit=4M
+query_cache_size=128M
+query_cache_type=1
+innodb_flush_log_at_trx_commit=2
+innodb_lock_wait_timeout=200
+max_connections=4096
+open_files_limit = 100000
+query_cache_min_res_unit=2k
+thread_cache_size=60
+performance_schema=OFF
+skip-log-bin" > /etc/mysql/conf.d/runcloud.cnf
+
+echo "[mysqld]
+bind-address=0.0.0.0" > /etc/mysql/mariadb.conf.d/99-server.cnf
 
     chmod 600 /etc/mysql/conf.d/root.cnf
 }
@@ -357,6 +401,7 @@ function BootstrapFirewall {
     systemctl enable firewalld
     systemctl start firewalld
 
+     # Add Capima services to firewalld
     echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <zone>
   <short>Capima</short>
@@ -382,7 +427,7 @@ function InstallComposer {
       local fileName=`curl -L -s http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/\?C\=M\;O\=D | grep "libssl1.1_1.1.1f-1ubuntu" | grep "amd64" | sed -r 's/.*href="([^"]+).*/\1/g' |
 head -n1`
       wget -4 "$baseUrl/$fileName" -O $fileName
-      dpkg -i $fileName
+      dpkg -i $fileName && rm -f $fileName
     fi
 
     source /etc/profile.d/capimapath.sh
@@ -400,18 +445,59 @@ function RegisterPathAndTweak {
 export PATH=/RunCloud/Packages/apache2-rc/bin:\$PATH" > /etc/profile.d/capimapath.sh
     echo "export GOPATH=/opt/Go/src" >> /etc/profile.d/capimapath.sh
 
-    echo fs.inotify.max_user_watches=524288 | tee -a /etc/sysctl.conf && sysctl -p
-    echo net.core.somaxconn = 65536 | tee -a /etc/sysctl.conf && sysctl -p
-    echo net.ipv4.tcp_max_tw_buckets = 1440000 | tee -a /etc/sysctl.conf && sysctl -p
-    echo vm.swappiness=10 | tee -a /etc/sysctl.conf && sysctl -p
-    echo vm.vfs_cache_pressure=50 | tee -a /etc/sysctl.conf && sysctl -p
-    echo vm.overcommit_memory=1 | tee -a /etc/sysctl.conf && sysctl -p
+    customKernelFile="/etc/sysctl.d/99-runcloud-custom-kernel.conf"
+    echo "# RunCloud's custom kernel tweak" > $customKernelFile
+
+    supportBBR=$(cat /boot/config-$(uname -r) | grep CONFIG_TCP_CONG_BBR=)
+    supportFQ=$(cat /boot/config-$(uname -r) | grep CONFIG_NET_SCH_FQ=)
+
+    if [[ $supportBBR ]]; then
+        sed -nr '/^net.ipv4.tcp_congestion_control/!p;$anet.ipv4.tcp_congestion_control = bbr' -i $customKernelFile
+    fi
+
+    if [[ $supportFQ ]]; then
+        sed -nr '/^net.core.default_qdisc/!p;$anet.core.default_qdisc = fq' -i $customKernelFile
+    fi
+
+    sed -nr '/^fs.inotify.max_user_watches/!p;$afs.inotify.max_user_watches = 524288' -i $customKernelFile
+    sed -nr '/^net.core.somaxconn/!p;$anet.core.somaxconn = 8192' -i $customKernelFile
+    sed -nr '/^vm.swappiness/!p;$avm.swappiness = 10' -i $customKernelFile
+    sed -nr '/^vm.vfs_cache_pressure/!p;$avm.vfs_cache_pressure = 5' -i $customKernelFile
+    sed -nr '/^net.core.netdev_max_backlog/!p;$anet.core.netdev_max_backlog = 16384' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_fastopen/!p;$anet.ipv4.tcp_fastopen = 3' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_max_syn_backlog/!p;$anet.ipv4.tcp_max_syn_backlog = 8192' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_max_tw_buckets/!p;$anet.ipv4.tcp_max_tw_buckets = 20000000' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_tw_reuse/!p;$anet.ipv4.tcp_tw_reuse = 1' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_rfc1337/!p;$anet.ipv4.tcp_rfc1337 = 1' -i $customKernelFile
+    sed -nr '/^net.core.rmem_default/!p;$anet.core.rmem_default = 1048576' -i $customKernelFile
+    sed -nr '/^net.core.rmem_max/!p;$anet.core.rmem_max = 16777216' -i $customKernelFile
+    sed -nr '/^net.core.wmem_default/!p;$anet.core.wmem_default = 1048576' -i $customKernelFile
+    sed -nr '/^net.core.wmem_max/!p;$anet.core.wmem_max = 16777216' -i $customKernelFile
+    sed -nr '/^net.core.optmem_max/!p;$anet.core.optmem_max = 65536' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_rmem/!p;$anet.ipv4.tcp_rmem = 4096 1048576 2097152' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_wmem/!p;$anet.ipv4.tcp_wmem = 4096 65536 16777216' -i $customKernelFile
+    sed -nr '/^net.ipv4.udp_rmem_min/!p;$anet.ipv4.udp_rmem_min = 8192' -i $customKernelFile
+    sed -nr '/^net.ipv4.udp_wmem_min/!p;$anet.ipv4.udp_wmem_min = 8192' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_mtu_probing/!p;$anet.ipv4.tcp_mtu_probing = 1' -i $customKernelFile
+    sed -nr '/^net.ipv4.tcp_slow_start_after_idle/!p;$anet.ipv4.tcp_slow_start_after_idle = 0' -i $customKernelFile
+
+    sysctl --system
+
+    # echo fs.inotify.max_user_watches=524288 | tee -a /etc/sysctl.conf && sysctl -p
+    # echo net.core.somaxconn = 65536 | tee -a /etc/sysctl.conf && sysctl -p
+    # echo net.ipv4.tcp_max_tw_buckets = 1440000 | tee -a /etc/sysctl.conf && sysctl -p
+    # echo vm.swappiness=10 | tee -a /etc/sysctl.conf && sysctl -p
+    # echo vm.vfs_cache_pressure=50 | tee -a /etc/sysctl.conf && sysctl -p
+    # echo vm.overcommit_memory=1 | tee -a /etc/sysctl.conf && sysctl -p
 
 
     /usr/bin/augtool <<EOF
 set /files/etc/ssh/sshd_config/UseDNS no
-set /files/etc/ssh/sshd_config/PasswordAuthentication yes
+set /files/etc/ssh/sshd_config/PasswordAuthentication no
 set /files/etc/ssh/sshd_config/PermitRootLogin yes
+set /files/etc/ssh/sshd_config/Match User $USER
+set /files/etc/ssh/sshd_config/PasswordAuthentication yes
+set /files/etc/ssh/sshd_config/Match all
 save
 EOF
     systemctl restart sshd
@@ -474,6 +560,12 @@ locale-gen en_US en_US.UTF-8
 export LANGUAGE=en_US.utf8
 export LC_ALL=en_US.utf8
 export DEBIAN_FRONTEND=noninteractive
+
+# wait for apt
+WaitForAPT
+
+# disable ufw *fix for vultr auto enable ufw
+DisableUFW
 
 # Checker
 if [[ $EUID -ne 0 ]]; then
@@ -617,6 +709,10 @@ if [ -f /tmp/installer.sh ]; then
 fi
 if [ -f /tmp/installation.log ]; then
     rm /tmp/installation.log
+fi
+# if there is 50-cloud-init.conf delete the file (RCQA-2596)
+if [ -e "/etc/ssh/sshd_config.d/50-cloud-init.conf" ]; then
+  rm "/etc/ssh/sshd_config.d/50-cloud-init.conf"
 fi
 
 ############################# MOTD ##################################

@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.3.1
+# VERSION: 1.4.0
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -43,11 +43,13 @@ APPDOMAINS_CRT=""
 APPDOMAINS_LE=""
 PUBLICPATH="current"
 PHP_VERSION=""
+PHP_SWITCHED="X"
 MNTWEB="/mnt/web/production"
 WEBAPP_DIR="$HOMEDIR/webapps"
 CERTDIR="/opt/Capima/certificates"
 SECURED_WEBAPP="X"
 SECURED_LIVE="X"
+USE_CAPICACHE="X"
 CAPIMAURL="https://capima.nntoan.com"
 PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
 LE_EMAIL=""
@@ -58,7 +60,53 @@ SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
 # Read-only variables
-readonly VERSION="1.3.1"
+declare -A ACTUAL_SERVICE=(
+  ["nginx"]="nginx-rc.service"
+  ["apache"]="apache2-rc.service"
+  ["php55"]="php55rc-fpm.service"
+  ["php56"]="php56rc-fpm.service"
+  ["php70"]="php70rc-fpm.service"
+  ["php71"]="php71rc-fpm.service"
+  ["php72"]="php72rc-fpm.service"
+  ["php73"]="php73rc-fpm.service"
+  ["php74"]="php74rc-fpm.service"
+  ["php80"]="php80rc-fpm.service"
+  ["php81"]="php81rc-fpm.service"
+  ["php82"]="php82rc-fpm.service"
+  ["php83"]="php83rc-fpm.service"
+  ["mysql"]="mariadb.service"
+  ["redis"]="redis-server.service"
+  ["elasticsearch"]="elasticsearch.service"
+  ["opensearch"]="opensearch.service"
+  ["mailhog"]="mailhog.service"
+)
+declare -A PHP_PATHS=(
+  ["php55"]="/RunCloud/Packages/php55rc"
+  ["php56"]="/RunCloud/Packages/php56rc"
+  ["php70"]="/RunCloud/Packages/php70rc"
+  ["php71"]="/RunCloud/Packages/php71rc"
+  ["php72"]="/RunCloud/Packages/php72rc"
+  ["php73"]="/RunCloud/Packages/php73rc"
+  ["php74"]="/RunCloud/Packages/php74rc"
+  ["php80"]="/RunCloud/Packages/php80rc"
+  ["php81"]="/RunCloud/Packages/php81rc"
+  ["php82"]="/RunCloud/Packages/php82rc"
+  ["php83"]="/RunCloud/Packages/php83rc"
+)
+declare -A PHPFPM_CONFDIRS=(
+  ["php55"]="/etc/php55rc/fpm.d"
+  ["php56"]="/etc/php56rc/fpm.d"
+  ["php70"]="/etc/php70rc/fpm.d"
+  ["php71"]="/etc/php71rc/fpm.d"
+  ["php72"]="/etc/php72rc/fpm.d"
+  ["php73"]="/etc/php73rc/fpm.d"
+  ["php74"]="/etc/php74rc/fpm.d"
+  ["php80"]="/etc/php80rc/fpm.d"
+  ["php81"]="/etc/php81rc/fpm.d"
+  ["php82"]="/etc/php82rc/fpm.d"
+  ["php83"]="/etc/php83rc/fpm.d"
+)
+readonly VERSION="1.4.0"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -260,7 +308,7 @@ function CreateNewWebApp {
       ;;
     magenx)
       WEBAPP_STACK="magenx"
-      echo -ne "${YELLOW}Magento 2 NGINX (Pre-configured for every Magento 2 application)"
+      echo -ne "${YELLOW}Magento 2 NGINX (Pre-configured for production-grade Magento 2 application)"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       ;;
@@ -296,6 +344,22 @@ function CreateNewWebApp {
         ;;
     esac
   fi
+
+  # Enable FastCGI Cache for webapp
+  read -r -p "${BLUE}Do you want to enable Nginx FastCGI Cache for your webapp? [Y/N]${NORMAL} " response
+  case "$response" in
+    [nN][oO]|[nN]|*)
+      USE_CAPICACHE="N"
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+      echo ""
+      ;;
+    [yY][eE][sS]|[yY])
+      USE_CAPICACHE="Y"
+      echo -ne "${YELLOW}Your web application will use FastCGI Cache. For more information, please visit: https://runcloud.io/blog/nginx-fastcgi-cache/"
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+  esac
 
   # Enable SSL for webapp
   read -r -p "${BLUE}Do you want to enable SSL for your webapp (dev,live,skip)? [dev]${NORMAL} " response
@@ -386,81 +450,39 @@ function CreateNewWebApp {
   # Choose PHP version
   read -r -p "${BLUE}Please choose PHP version of your webapp? [7.4]${NORMAL} " response
   case "$response" in
-    5.5|55)
+    5.5|55|5.6|56)
       if [[ "$OSCODENAME" == 'xenial' ]]; then
-        PHP_VERSION="php55rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
         PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
-    5.6|56)
-      if [[ "$OSCODENAME" == 'xenial' ]]; then
-        PHP_VERSION="php56rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      else
-        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
-        PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      fi
-      ;;
-    7.0|70)
+    7.0|70|7.1|71)
       if [[ "$OSCODENAME" == 'bionic' ]]; then
-        PHP_VERSION="php70rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
-        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
         PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
-    7.1|71)
-      if [[ "$OSCODENAME" == 'bionic' ]]; then
-        PHP_VERSION="php71rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      else
-        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
-        PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      fi
-      ;;
-    7.2|72)
+    7.2|72|7.3|73)
       if [[ "$OSCODENAME" == 'focal' ]]; then
-        PHP_VERSION="php72rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
-        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
         PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
-    7.3|73)
-      if [[ "$OSCODENAME" == 'focal' ]]; then
-        PHP_VERSION="php73rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      else
-        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option."
-        PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      fi
-      ;;
-    7.4|74)
-      PHP_VERSION="php74rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      ;;
-    8.0|80)
-      PHP_VERSION="php80rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      ;;
-    8.1|81)
-      PHP_VERSION="php81rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
-      ;;
-    8.2|82)
-      PHP_VERSION="php82rc"
-      PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+    7.4|74|8.0|80|8.1|81|8.2|82|8.3|83|*)
+      PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+      PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       ;;
   esac
 
@@ -477,7 +499,117 @@ function ListWebApp {
 }
 
 function UpdateWebApp {
-  echo "${YELLOW}This functionality is being under development... Please try again next year.${NORMAL}"
+  while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
+  do
+    read -r -p "${BLUE}Please enter the webapp name you would like to update:${NORMAL} " APPNAME
+    if [[ -z "$APPNAME" ]]; then
+      echo -ne "${RED}No app name entered.${NORMAL}"
+      echo ""
+    fi
+  done
+
+  # Enable FastCGI Cache for webapp
+  read -r -p "${BLUE}Do you want to enable Nginx FastCGI Cache for your webapp? [Y/N]${NORMAL} " response
+  case "$response" in
+    [nN][oO]|[nN]|*)
+      USE_CAPICACHE="N"
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+      echo ""
+      ;;
+    [yY][eE][sS]|[yY])
+      USE_CAPICACHE="Y"
+      echo -ne "${YELLOW}Your web application will use FastCGI Cache. For more information, please visit: https://runcloud.io/blog/nginx-fastcgi-cache/"
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+  esac
+
+  # Switch PHP version for webapp
+  read -r -p "${BLUE}Do you want to switch PHP version for your webapp? [skip]${NORMAL} " response
+  case "$response" in
+    5.5|55|5.6|56)
+      if [[ "$OSCODENAME" == 'xenial' ]]; then
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_SWITCHED="Y"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
+        echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+        PHP_SWITCHED="N"
+      fi
+      ;;
+    7.0|70|7.1|71)
+      if [[ "$OSCODENAME" == 'bionic' ]]; then
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_SWITCHED="Y"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
+        echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+        PHP_SWITCHED="N"
+      fi
+      ;;
+    7.2|72|7.3|73)
+      if [[ "$OSCODENAME" == 'focal' ]]; then
+        PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_SWITCHED="Y"
+      else
+        echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
+        echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+        PHP_SWITCHED="N"
+      fi
+      ;;
+    7.4|74|8.0|80|8.1|81|8.2|82|8.3|83)
+      PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
+      PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+      PHP_SWITCHED="Y"
+      ;;
+    skip|*)
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
+      echo ""
+      PHP_SWITCHED="N"
+      ;;
+  esac
+
+  # FastCGI Cache
+  if [[ "$USE_CAPICACHE" == "Y" ]]; then
+    if [[ -f "$NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf" ]]; then
+      echo -ne "${YELLOW}Please wait, we are configuring your web application...${NORMAL}"
+
+      wget "$CAPIMAURL/templates/nginx/capimacache/headers.d/fcgicache.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_http.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_main_before.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf
+      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf:" >> $CAPIMA_LOGFILE
+
+      echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      RestartServices nginx
+    else
+      echo -ne "${YELLOW}${APPNAME} has configured Capima Cache already...${NORMAL}"
+      echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+    fi
+  fi
+
+  # PHP-FPM
+  if [[ "$PHP_SWITCHED" == "Y" ]]; then
+    rm -rf /etc/php*rc/fpm.d/$appname.conf 2>&1
+    rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
+    wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
+    wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
+    RestartServices php
+    #echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
+    #echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
+    #echo "" >> $CAPIMA_LOGFILE
+    echo -ne "${YELLOW}PHP version of webapp switched to $PHP_VERSION"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  fi
 }
 
 function DeleteWebApp {
@@ -503,28 +635,12 @@ function DeleteWebApp {
   rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
   rm -rf $CERTDIR/$appname 2>&1
   sed -i "/$appname/d" $CAPIMA_LOGFILE
-
-  systemctl restart nginx-rc.service
-  systemctl restart apache2-rc.service
-  if [[ "$OSCODENAME" == 'xenial' ]]; then
-    systemctl restart php55rc-fpm.service
-    systemctl restart php56rc-fpm.service
-  elif [[ "$OSCODENAME" == 'bionic' ]]; then
-    systemctl restart php70rc-fpm.service
-    systemctl restart php71rc-fpm.service
-  elif [[ "$OSCODENAME" == 'focal' ]]; then
-    systemctl restart php72rc-fpm.service
-    systemctl restart php73rc-fpm.service
-  fi
-  systemctl restart php74rc-fpm.service
-  systemctl restart php80rc-fpm.service
-  systemctl restart php81rc-fpm.service
-  systemctl restart php82rc-fpm.service
-
   echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 
-  exit
+  RestartServices nginx
+  RestartServices apache
+  RestartServices php
 }
 
 function CreateNewDb {
@@ -662,10 +778,23 @@ function BootstrapWebApplication {
   echo -ne "$NGINX_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$NGINX_CONFDIR/$APPNAME.d:" >> $CAPIMA_LOGFILE
 
+  # FastCGI Cache
+  if [[ "$USE_CAPICACHE" == "Y" ]]; then
+    wget "$CAPIMAURL/templates/nginx/capimacache/headers.d/fcgicache.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf
+    wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_http.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf
+    wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_main_before.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf
+    wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf
+    echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf:" >> $CAPIMA_LOGFILE
+    echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf:" >> $CAPIMA_LOGFILE
+    echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf:" >> $CAPIMA_LOGFILE
+    echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf:" >> $CAPIMA_LOGFILE
+  fi
+
   # Apache
   if [[ "$1" == "hybrid" ]]; then
     wget "$CAPIMAURL/templates/apache/$1.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s/APPDOMAINS/$APPDOMAINS/g;s|HOMEDIR|$HOMEDIR|g;s|PUBLICPATH|$PUBLICPATH|g" > $APACHE_CONFDIR/$APPNAME.conf
     echo -ne "$APACHE_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
+    RestartServices apache
   fi
 
   # PHP-FPM
@@ -680,69 +809,44 @@ function BootstrapWebApplication {
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
   echo "" >> $CAPIMA_LOGFILE
 
-  systemctl restart nginx-rc.service
-  systemctl restart apache2-rc.service
-  systemctl restart $PHP_VERSION-fpm.service
+  RestartServices nginx
+  systemctl restart ${PHP_VERSION}rc-fpm.service
 
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
 
 function SwitchPhpCliVersion {
-  case "$2" in
-    5.5|55)
+  local user_selected=$2
+  local php_version=""
+  case "$user_selected" in
+    5.5|55|5.6|56)
       if [[ "$OSCODENAME" == 'xenial' ]]; then
-        ln -sf /RunCloud/Packages/php55rc/bin/php /usr/bin/php
+        php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+        ln -sf ${PHP_PATHS[$php_version]}/bin/php /usr/bin/php
       else
         use_default=1
       fi
     ;;
-    5.6|56)
-      if [[ "$OSCODENAME" == 'xenial' ]]; then
-        ln -sf /RunCloud/Packages/php56rc/bin/php /usr/bin/php
-      else
-        use_default=1
-      fi
-    ;;
-    7.0|70)
+    7.0|70|7.1|71)
       if [[ "$OSCODENAME" == 'bionic' ]]; then
-        ln -sf /RunCloud/Packages/php70rc/bin/php /usr/bin/php
+        php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+        ln -sf ${PHP_PATHS[$php_version]}/bin/php /usr/bin/php
       else
         use_default=1
       fi
     ;;
-    7.1|71)
-      if [[ "$OSCODENAME" == 'bionic' ]]; then
-        ln -sf /RunCloud/Packages/php71rc/bin/php /usr/bin/php
-      else
-        use_default=1
-      fi
-    ;;
-    7.2|72)
+    7.2|72|7.3|73)
       if [[ "$OSCODENAME" == 'focal' ]]; then
-        ln -sf /RunCloud/Packages/php72rc/bin/php /usr/bin/php
+        php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+        ln -sf ${PHP_PATHS[$php_version]}/bin/php /usr/bin/php
       else
         use_default=1
       fi
     ;;
-    7.3|73)
-      if [[ "$OSCODENAME" == 'focal' ]]; then
-        ln -sf /RunCloud/Packages/php73rc/bin/php /usr/bin/php
-      else
-        use_default=1
-      fi
-    ;;
-    7.4|74)
-      ln -sf /RunCloud/Packages/php74rc/bin/php /usr/bin/php
-    ;;
-    8.0|80)
-      ln -sf /RunCloud/Packages/php80rc/bin/php /usr/bin/php
-    ;;
-    8.1|81)
-      ln -sf /RunCloud/Packages/php81rc/bin/php /usr/bin/php
-    ;;
-    8.2|82)
-      ln -sf /RunCloud/Packages/php82rc/bin/php /usr/bin/php
+    7.4|74|8.0|80|8.1|81|8.2|82|8.3|83)
+      php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+      ln -sf ${PHP_PATHS[$php_version]}/bin/php /usr/bin/php
     ;;
     *)
       use_default=1
@@ -759,6 +863,9 @@ function SwitchPhpCliVersion {
 }
 
 function EnableServices {
+  local user_action=$2
+  local user_selected=$3
+  local php_version=""
   if [[ $SERVICES == *"$2"* ]]; then
     let "DETECTEDSERVICESCOUNT+=1"
     DETECTEDSERVICESNAME+=" $2"
@@ -770,83 +877,51 @@ function EnableServices {
     exit 1
   fi
 
-  case "$2" in
+  case "$user_action" in
     php)
-      case "$3" in
-        55|5.5)
+      case "$user_selected" in
+        55|5.5|56|5.6)
           if [[ "$OSCODENAME" == 'xenial' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 5.5 FPM service"
-            systemctl enable php55rc-fpm.service
+            echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl enable ${ACTUAL_SERVICE[$php_version]}
             echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
             echo ""
           fi
         ;;
-        56|5.6)
-          if [[ "$OSCODENAME" == 'xenial' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 5.6 FPM service"
-            systemctl enable php56rc-fpm.service
-            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-            echo ""
-          fi
-        ;;
-        70|7.0)
+        70|7.0|71|7.1)
           if [[ "$OSCODENAME" == 'bionic' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 7.0 FPM service"
-            systemctl enable php70rc-fpm.service
+            echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl enable ${ACTUAL_SERVICE[$php_version]}
             echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
             echo ""
           fi
         ;;
-        71|7.1)
-          if [[ "$OSCODENAME" == 'bionic' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 7.1 FPM service"
-            systemctl enable php71rc-fpm.service
-            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-            echo ""
-          fi
-        ;;
-        72|7.2)
+        72|7.2|73|7.3)
           if [[ "$OSCODENAME" == 'focal' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 7.2 FPM service"
-            systemctl enable php72rc-fpm.service
+            echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl enable ${ACTUAL_SERVICE[$php_version]}
             echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
             echo ""
           fi
         ;;
-        73|7.3)
-          if [[ "$OSCODENAME" == 'focal' ]]; then
-            echo -ne "${YELLOW}Enabling PHP 7.3 FPM service"
-            systemctl enable php73rc-fpm.service
-            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-            echo ""
-          fi
-        ;;
-        80|8.0)
-          echo -ne "${YELLOW}Enabling PHP 8.0 FPM service"
-          systemctl enable php80rc-fpm.service
-          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-          echo ""
-        ;;
-        81|8.1)
-          echo -ne "${YELLOW}Enabling PHP 8.1 FPM service"
-          systemctl enable php81rc-fpm.service
-          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-          echo ""
-        ;;
-        82|8.2)
-          echo -ne "${YELLOW}Enabling PHP 8.2 FPM service"
-          systemctl enable php82rc-fpm.service
+        80|8.0|81|8.1|82|8.2|83|8.3)
+          echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+          php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+          systemctl enable ${ACTUAL_SERVICE[$php_version]}
           echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
           echo ""
         ;;
         *)
-          echo "${RED}Please choose one version of PHP you would like to enable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3, 8.0, 8.1, 8.2.${NORMAL}"
+          echo "${RED}Please choose one version of PHP you would like to enable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3, 8.0, 8.1, 8.2, 8.3.${NORMAL}"
           echo "${RED}You might not able to enable all PHP versions, check compatible map in https://capima.nntoan.com.${NORMAL}"
         ;;
       esac
     ;;
     elasticsearch)
-      case "$3" in
+      case "$user_selected" in
         5)
           wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
           echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" > /etc/apt/sources.list.d/elastic-5.x.list
@@ -866,15 +941,15 @@ function EnableServices {
       apt-get update -qq
       apt-get install default-jre elasticsearch -y -qq
       systemctl daemon-reload &>/dev/null
-      systemctl enable elasticsearch &>/dev/null
-      systemctl restart elasticsearch &>/dev/null
+      systemctl enable ${ACTUAL_SERVICE[elasticsearch]} &>/dev/null
+      systemctl restart ${ACTUAL_SERVICE[elasticsearch]} &>/dev/null
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
     ;;
     redis)
       echo -ne "${YELLOW}Enabling Redis"
-      systemctl enable redis-server &>/dev/null
-      systemctl restart redis-server &>/dev/null
+      systemctl enable ${ACTUAL_SERVICE[redis]} &>/dev/null
+      systemctl restart ${ACTUAL_SERVICE[redis]} &>/dev/null
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
     ;;
@@ -893,28 +968,20 @@ function EnableServices {
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php55rc/conf.d/z-mailhog.ini
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php56rc/conf.d/z-mailhog.ini
-        systemctl restart php55rc-fpm.service
-        systemctl restart php56rc-fpm.service
       elif [[ "$OSCODENAME" == 'bionic' ]]; then
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php70rc/conf.d/z-mailhog.ini
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php71rc/conf.d/z-mailhog.ini
-        systemctl restart php70rc-fpm.service
-        systemctl restart php71rc-fpm.service
       elif [[ "$OSCODENAME" == 'focal' ]]; then
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php72rc/conf.d/z-mailhog.ini
         echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php73rc/conf.d/z-mailhog.ini
-        systemctl restart php72rc-fpm.service
-        systemctl restart php73rc-fpm.service
       fi
 
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php74rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php80rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php81rc/conf.d/z-mailhog.ini
       echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php82rc/conf.d/z-mailhog.ini
-      systemctl restart php74rc-fpm.service
-      systemctl restart php80rc-fpm.service
-      systemctl restart php81rc-fpm.service
-      systemctl restart php82rc-fpm.service
+      echo "sendmail_path = /usr/local/bin/mhsendmail" > /etc/php83rc/conf.d/z-mailhog.ini
+      RestartServices php
 
       echo "[Unit]
 Description=MailHog Service
@@ -928,8 +995,8 @@ ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127
 WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
 
     systemctl daemon-reload &>/dev/null
-    systemctl enable mailhog.service &>/dev/null
-    systemctl restart mailhog.service &>/dev/null
+    systemctl enable ${ACTUAL_SERVICE[mailhog]} &>/dev/null
+    systemctl restart ${ACTUAL_SERVICE[mailhog]} &>/dev/null
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
     echo ""
     ;;
@@ -940,60 +1007,67 @@ WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
 }
 
 function RestartServices {
-  case "$2" in
-    nginx)
-      systemctl restart nginx-rc.service
-    ;;
-    apache)
-      systemctl restart apache2-rc.service
+  current_choice=$2
+  if [[ -z "$2" ]]; then
+    current_choice="$1"
+  fi
+
+  if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[$current_choice]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[$current_choice]}" ]]; then
+    systemctl restart ${ACTUAL_SERVICE[$current_choice]}
+  fi
+
+  case "$current_choice" in
+    nginx|apache|httpd|elasticsearch|opensearch|redis|mysql|mariadb|mailhog)
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[$current_choice]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[$current_choice]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[$current_choice]}
+      fi
     ;;
     php)
       if [[ "$OSCODENAME" == 'xenial' ]]; then
-        systemctl restart php55rc-fpm.service
-        systemctl restart php56rc-fpm.service
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php55]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php55]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php55]}
+        fi
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php56]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php56]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php56]}
+        fi
       elif [[ "$OSCODENAME" == 'bionic' ]]; then
-        systemctl restart php70rc-fpm.service
-        systemctl restart php71rc-fpm.service
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php70]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php70]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php70]}
+        fi
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php71]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php71]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php71]}
+        fi
       elif [[ "$OSCODENAME" == 'focal' ]]; then
-        systemctl restart php72rc-fpm.service
-        systemctl restart php73rc-fpm.service
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php72]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php72]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php72]}
+        fi
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php73]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php73]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[php73]}
+        fi
       fi
-      systemctl restart php74rc-fpm.service
-      systemctl restart php80rc-fpm.service
-      systemctl restart php81rc-fpm.service
-      systemctl restart php82rc-fpm.service
-    ;;
-    elastic)
-      systemctl restart elasticsearch.service
-    ;;
-    redis)
-      systemctl restart redis-server.service
-    ;;
-    mailhog)
-      systemctl restart mailhog.service
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php74]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php74]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[php74]}
+      fi
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php80]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php80]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[php80]}
+      fi
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php81]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php81]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[php81]}
+      fi
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php82]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php82]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[php82]}
+      fi
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[php83]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[php83]}" ]]; then
+        systemctl restart ${ACTUAL_SERVICE[php83]}
+      fi
     ;;
     *|all|--all|-a)
-      systemctl restart nginx-rc.service
-      systemctl restart apache2-rc.service
-      if [[ "$OSCODENAME" == 'xenial' ]]; then
-        systemctl restart php55rc-fpm.service
-        systemctl restart php56rc-fpm.service
-      elif [[ "$OSCODENAME" == 'bionic' ]]; then
-        systemctl restart php70rc-fpm.service
-        systemctl restart php71rc-fpm.service
-      elif [[ "$OSCODENAME" == 'focal' ]]; then
-        systemctl restart php72rc-fpm.service
-        systemctl restart php73rc-fpm.service
-      fi
-      systemctl restart php74rc-fpm.service
-      systemctl restart php80rc-fpm.service
-      systemctl restart php81rc-fpm.service
-      systemctl restart php82rc-fpm.service
-      systemctl restart elasticsearch.service
-      systemctl restart redis-server.service
-      if [[ -f "/etc/systemd/system/mailhog.service" ]]; then
-        systemctl restart mailhog.service
-      fi
+      for service in "${!ACTUAL_SERVICE[@]}"
+      do
+        if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[$service]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[$service]}" ]]; then
+          systemctl restart ${ACTUAL_SERVICE[$service]}
+        fi
+      done
     ;;
   esac
 
