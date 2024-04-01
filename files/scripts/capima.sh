@@ -51,7 +51,8 @@ SECURED_WEBAPP="X"
 SECURED_LIVE="X"
 USE_CAPICACHE="X"
 CAPIMAURL="https://capima.nntoan.com"
-PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+PHP_CONFDIR="/etc/$PHP_VERSION/conf.d"
+PHP_FPMDIR="/etc/$PHP_VERSION/fpm.d"
 LE_EMAIL=""
 CERTBOT_AUTO="/usr/local/bin/certbot-auto"
 SECURED_KEYFILE="$CERTDIR/$APPNAME/privkey.pem"
@@ -260,8 +261,8 @@ function CreateNewWebApp {
   CheckingRemoteAccessible
 
   # Define the app name
-  randomName=$(petname --complexity 2 --words 1)
-  randomAppName="app-${randomName}"
+  local randomName=$(petname --complexity 2 --words 1)
+  local randomAppName="app-${randomName}"
   while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
   do
     read -r -p "${BLUE}Please enter your webapp name (lowercase, alphanumeric) [$randomAppName]:${NORMAL} " APPNAME
@@ -453,36 +454,40 @@ function CreateNewWebApp {
     5.5|55|5.6|56)
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_FPMDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
     7.0|70|7.1|71)
       if [[ "$OSCODENAME" == 'bionic' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_FPMDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
     7.2|72|7.3|73)
       if [[ "$OSCODENAME" == 'focal' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, fallback to default option"
         PHP_VERSION="php74rc"
-        PHP_CONFDIR="/etc/$PHP_VERSION/fpm.d"
+        PHP_FPMDIR="/etc/$PHP_VERSION/fpm.d"
       fi
       ;;
-    7.4|74|8.0|80|8.1|81|8.2|82|8.3|83|*)
+    8.0|80|8.1|81|8.2|82|8.3|83)
       PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-      PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+      PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+      ;;
+    7.4|74|*)
+      PHP_VERSION="php74"
+      PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       ;;
   esac
 
@@ -499,10 +504,14 @@ function ListWebApp {
 }
 
 function UpdateWebApp {
-  while [[ $APPNAME =~ [^-a-z0-9] ]] || [[ $APPNAME == '' ]]
+
+  # Define the webapp name
+  local $appname;
+  local $response;
+  while [[ $appname =~ [^-a-z0-9] ]] || [[ $appname == '' ]]
   do
-    read -r -p "${BLUE}Please enter the webapp name you would like to update:${NORMAL} " APPNAME
-    if [[ -z "$APPNAME" ]]; then
+    read -r -p "${BLUE}Please enter the webapp name you would like to update:${NORMAL} " appname
+    if [[ -z "$appname" ]]; then
       echo -ne "${RED}No app name entered.${NORMAL}"
       echo ""
     fi
@@ -530,7 +539,7 @@ function UpdateWebApp {
     5.5|55|5.6|56)
       if [[ "$OSCODENAME" == 'xenial' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
         PHP_SWITCHED="Y"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
@@ -541,7 +550,7 @@ function UpdateWebApp {
     7.0|70|7.1|71)
       if [[ "$OSCODENAME" == 'bionic' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
         PHP_SWITCHED="Y"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
@@ -552,7 +561,7 @@ function UpdateWebApp {
     7.2|72|7.3|73)
       if [[ "$OSCODENAME" == 'focal' ]]; then
         PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-        PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+        PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
         PHP_SWITCHED="Y"
       else
         echo -ne "${YELLOW}Your OS version doesn't support this PHP version, skipping..."
@@ -562,7 +571,7 @@ function UpdateWebApp {
       ;;
     7.4|74|8.0|80|8.1|81|8.2|82|8.3|83)
       PHP_VERSION=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$response")
-      PHP_CONFDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
+      PHP_FPMDIR="${PHPFPM_CONFDIRS[$PHP_VERSION]}"
       PHP_SWITCHED="Y"
       ;;
     skip|*)
@@ -574,23 +583,23 @@ function UpdateWebApp {
 
   # FastCGI Cache
   if [[ "$USE_CAPICACHE" == "Y" ]]; then
-    if [[ -f "$NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf" ]]; then
+    if [[ -f "$NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf" ]]; then
       echo -ne "${YELLOW}Please wait, we are configuring your web application...${NORMAL}"
 
-      wget "$CAPIMAURL/templates/nginx/capimacache/headers.d/fcgicache.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf
-      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_http.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf
-      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_main_before.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf
-      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_proxy.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g" > $NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf
-      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.headers.capima-hub.conf:" >> $CAPIMA_LOGFILE
-      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.http.capima-hub.conf:" >> $CAPIMA_LOGFILE
-      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.main-before.capima-hub.conf:" >> $CAPIMA_LOGFILE
-      echo -ne "$NGINX_EXTRA_CONFDIR/$APPNAME.location.proxy.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      wget "$CAPIMAURL/templates/nginx/capimacache/headers.d/fcgicache.conf" --quiet -O - | sed "s/APPNAME/$appname/g" > $NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_http.conf" --quiet -O - | sed "s/APPNAME/$appname/g" > $NGINX_EXTRA_CONFDIR/$appname.location.http.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_main_before.conf" --quiet -O - | sed "s/APPNAME/$appname/g" > $NGINX_EXTRA_CONFDIR/$appname.location.main-before.capima-hub.conf
+      wget "$CAPIMAURL/templates/nginx/capimacache/location.d/fcgicache_proxy.conf" --quiet -O - | sed "s/APPNAME/$appname/g" > $NGINX_EXTRA_CONFDIR/$appname.location.proxy.capima-hub.conf
+      echo -ne "$NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$appname.location.http.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$appname.location.main-before.capima-hub.conf:" >> $CAPIMA_LOGFILE
+      echo -ne "$NGINX_EXTRA_CONFDIR/$appname.location.proxy.capima-hub.conf:" >> $CAPIMA_LOGFILE
 
       echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       RestartServices nginx
     else
-      echo -ne "${YELLOW}${APPNAME} has configured Capima Cache already...${NORMAL}"
+      echo -ne "${YELLOW}${appname} has configured Capima Cache already...${NORMAL}"
       echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
     fi
@@ -600,11 +609,11 @@ function UpdateWebApp {
   if [[ "$PHP_SWITCHED" == "Y" ]]; then
     rm -rf /etc/php*rc/fpm.d/$appname.conf 2>&1
     rm -rf $PHP_EXTRA_CONFDIR/$appname.conf 2>&1
-    wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
-    wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
+    wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$appname/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_FPMDIR/$appname.conf
+    wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$appname.conf
     RestartServices php
-    #echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
-    #echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
+    #echo -ne "$PHP_FPMDIR/$appname.conf:" >> $CAPIMA_LOGFILE
+    #echo -ne "$PHP_EXTRA_CONFDIR/$appname.conf" >> $CAPIMA_LOGFILE
     #echo "" >> $CAPIMA_LOGFILE
     echo -ne "${YELLOW}PHP version of webapp switched to $PHP_VERSION"
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
@@ -614,6 +623,7 @@ function UpdateWebApp {
 
 function DeleteWebApp {
   # Define the app name
+  local $appname;
   while [[ $appname =~ [^-a-z0-9] ]] || [[ $appname == '' ]]
   do
     read -r -p "${BLUE}Please enter the webapp name you would like to delete:${NORMAL} " appname
@@ -648,18 +658,19 @@ function CreateNewDb {
   CheckingRemoteAccessible
 
   # Define the database name
-  while [[ $DBNAME =~ [^-_a-z0-9] ]] || [[ $DBNAME == '' ]]
+  local $dbname;
+  while [[ $dbname =~ [^-_a-z0-9] ]] || [[ $dbname == '' ]]
   do
-    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " DBNAME
-    if [[ -z "$DBNAME" ]]; then
+    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " dbname
+    if [[ -z "$dbname" ]]; then
       echo -ne "${RED}No database name entered.${NORMAL}"
       echo ""
     else
-      mysql -uroot -p$(GetRootPassword) -e "CREATE DATABASE IF NOT EXISTS ${DBNAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+      mysql -uroot -p$(GetRootPassword) -e "CREATE DATABASE IF NOT EXISTS ${dbname} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
     fi
   done
 
-  echo -ne "${YELLOW}New database has been created: $DBNAME"
+  echo -ne "${YELLOW}New database has been created: $dbname"
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
@@ -669,7 +680,11 @@ function UpdateDb {
 }
 
 function DeleteDb {
+  # Make request to server
+  CheckingRemoteAccessible
+
   # Define the database name
+  local $dbname;
   while [[ $dbname =~ [^-_a-z0-9] ]] || [[ $dbname == '' ]]
   do
     read -r -p "${BLUE}Please enter the database name you would like to delete:${NORMAL} " dbname
@@ -692,24 +707,26 @@ function ImportDb {
   CheckingRemoteAccessible
 
   # Define the database name
-  while [[ $DBNAME =~ [^-_a-z0-9] ]] || [[ $DBNAME == '' ]]
+  local $dbname;
+  local $dbpath;
+  while [[ $dbname =~ [^-_a-z0-9] ]] || [[ $dbname == '' ]]
   do
-    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " DBNAME
-    if [[ -z "$DBNAME" ]]; then
+    read -r -p "${BLUE}Please enter your database name (lowercase, alphanumeric):${NORMAL} " dbname
+    if [[ -z "$dbname" ]]; then
       echo -ne "${RED}No database name entered.${NORMAL}"
       echo ""
     fi
   done
 
-  read -r -p "${BLUE}Please enter the local filepath of database:${NORMAL} " DBPATH
-  if [[ -z "$DBPATH" ]]; then
+  read -r -p "${BLUE}Please enter the local filepath of database:${NORMAL} " dbpath
+  if [[ -z "$dbpath" ]]; then
     echo -ne "${RED}No database filepath provided.${NORMAL}"
     echo ""
   else
-    pv ${DBPATH} | mysql -uroot -p$(GetRootPassword) ${DBNAME}
+    pv ${dbpath} | mysql -uroot -p$(GetRootPassword) ${dbname}
   fi
 
-  echo -ne "${YELLOW}$DBNAME has been imported successfully."
+  echo -ne "${YELLOW}${dbpath} has been imported to ${dbname} successfully."
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
@@ -798,14 +815,20 @@ function BootstrapWebApplication {
   fi
 
   # PHP-FPM
-  wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > $PHP_CONFDIR/$APPNAME.conf
-  wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O $PHP_EXTRA_CONFDIR/$APPNAME.conf
+  PHP_CONFDIR=$(${PHP_PATHS[$PHP_VERSION]}/bin/php --ini | grep "Scan for additional" | cut -d":" -f2 | cut -d" " -f2)
+  wget "$CAPIMAURL/templates/php/fpm.d/appname.conf" --quiet -O - | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g" > "$PHP_FPMDIR/$APPNAME.conf"
+  wget "$CAPIMAURL/templates/php/extra/appname.conf" --quiet -O "$PHP_EXTRA_CONFDIR/$APPNAME.conf"
   if [[ "$1" == "magenx" ]]; then
-    wget "$CAPIMAURL/templates/php/index-before.conf" --quiet -O $MNTWEB/$APPNAME/deploy/shared/index-before.php
-    wget "$CAPIMAURL/templates/php/magento-vars.conf" --quiet -O $MNTWEB/$APPNAME/deploy/shared/magento-vars.php
+    wget "$CAPIMAURL/templates/php/$1/index-before.conf" --quiet -O "$MNTWEB/$APPNAME/deploy/shared/index-before.php"
+    wget "$CAPIMAURL/templates/php/$1/magento-vars.conf" --quiet -O "$MNTWEB/$APPNAME/deploy/shared/magento-vars.php"
+    wget "$CAPIMAURL/templates/php/$1/op-exclude.txt" --quiet -O "$MNTWEB/$APPNAME/deploy/shared/op-exclude.txt"
+    wget "$CAPIMAURL/templates/php/$1/appname.conf" --quiet -O | sed "s/APPNAME/$APPNAME/g;s|HOMEDIR|$HOMEDIR|g;s/USER/$USER/g;s|PUBLICPATH|$PUBLICPATH|g" > "$PHP_EXTRA_CONFDIR/$APPNAME.conf"
     chown -Rf "$USER":"$USER" "$MNTWEB/$APPNAME/deploy/shared/"
+    if [[ ! -f "$WEBAPP_DIR/$APPNAME/$PUBLICPATH/op-exclude.txt" ]]; then
+      runuser -l $USER -c "ln -snf $MNTWEB/$APPNAME/deploy/shared/op-exclude.txt $WEBAPP_DIR/$APPNAME/$PUBLICPATH/op-exclude.txt"
+    fi
   fi
-  echo -ne "$PHP_CONFDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
+  echo -ne "$PHP_FPMDIR/$APPNAME.conf:" >> $CAPIMA_LOGFILE
   echo -ne "$PHP_EXTRA_CONFDIR/$APPNAME.conf" >> $CAPIMA_LOGFILE
   echo "" >> $CAPIMA_LOGFILE
 
@@ -856,7 +879,7 @@ function SwitchPhpCliVersion {
   if [[ ! -z "$use_default" ]]; then
     echo -ne "${YELLOW}This version of PHP does not supported with your server installation."
   else
-    echo -ne "${YELLOW}PHP-CLI version set to: $2."
+    echo -ne "${YELLOW}PHP-CLI version set to: $user_selected."
   fi
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
@@ -907,7 +930,7 @@ function EnableServices {
             echo ""
           fi
         ;;
-        80|8.0|81|8.1|82|8.2|83|8.3)
+        74|7.4|80|8.0|81|8.1|82|8.2|83|8.3)
           echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
           php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
           systemctl enable ${ACTUAL_SERVICE[$php_version]}
@@ -994,14 +1017,95 @@ ExecStart=/usr/local/bin/MailHog -api-bind-addr 127.0.0.1:8025 -ui-bind-addr 127
 [Install]
 WantedBy=multi-user.target" > /etc/systemd/system/mailhog.service
 
-    systemctl daemon-reload &>/dev/null
-    systemctl enable ${ACTUAL_SERVICE[mailhog]} &>/dev/null
-    systemctl restart ${ACTUAL_SERVICE[mailhog]} &>/dev/null
-    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-    echo ""
+      systemctl daemon-reload &>/dev/null
+      systemctl enable ${ACTUAL_SERVICE[mailhog]} &>/dev/null
+      systemctl restart ${ACTUAL_SERVICE[mailhog]} &>/dev/null
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
     ;;
     *)
       echo "${RED}Please choose at least a service you would like to enable: elasticsearch, redis, mailhog, php.${NORMAL}"
+    ;;
+  esac
+}
+
+function DisableServices {
+  local user_action=$2
+  local user_selected=$3
+  local php_version=""
+
+  case "$user_action" in
+    php)
+      case "$user_selected" in
+        55|5.5|56|5.6)
+          if [[ "$OSCODENAME" == 'xenial' ]]; then
+            echo -ne "${YELLOW}Disabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl disable ${ACTUAL_SERVICE[$php_version]}
+            systemctl stop ${ACTUAL_SERVICE[$php_version]}
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        70|7.0|71|7.1)
+          if [[ "$OSCODENAME" == 'bionic' ]]; then
+            echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl disable ${ACTUAL_SERVICE[$php_version]}
+            systemctl stop ${ACTUAL_SERVICE[$php_version]}
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        72|7.2|73|7.3)
+          if [[ "$OSCODENAME" == 'focal' ]]; then
+            echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+            php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+            systemctl disable ${ACTUAL_SERVICE[$php_version]}
+            systemctl stop ${ACTUAL_SERVICE[$php_version]}
+            echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+            echo ""
+          fi
+        ;;
+        74|7.4|80|8.0|81|8.1|82|8.2|83|8.3)
+          echo -ne "${YELLOW}Enabling PHP ${user_selected} FPM service"
+          php_version=$(awk '{gsub(/[.]/,"");print $NF}' <<< "php$user_selected")
+          systemctl disable ${ACTUAL_SERVICE[$php_version]}
+          systemctl stop ${ACTUAL_SERVICE[$php_version]}
+          echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+          echo ""
+        ;;
+        *)
+          echo "${RED}Please choose one version of PHP you would like to disable: 5.5, 5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3.${NORMAL}"
+          echo "${RED}See list supported of PHP in https://capima.nntoan.com.${NORMAL}"
+        ;;
+      esac
+    ;;
+    elasticsearch)
+      echo -ne "${YELLOW}Disabling Elastic Search"
+      systemctl disable ${ACTUAL_SERVICE[elasticsearch]} &>/dev/null
+      systemctl stop ${ACTUAL_SERVICE[elasticsearch]} &>/dev/null
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+    ;;
+    redis)
+      echo -ne "${YELLOW}Disabling Redis"
+      systemctl disable ${ACTUAL_SERVICE[redis]} &>/dev/null
+      systemctl stop ${ACTUAL_SERVICE[redis]} &>/dev/null
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+    ;;
+    mailhog)
+      echo -ne "${YELLOW}Disabling MailHog"
+      if [[ -f "/etc/systemd/system/${ACTUAL_SERVICE[$current_choice]}" && -f "/etc/systemd/system/multi-user.target.wants/${ACTUAL_SERVICE[$current_choice]}" ]]; then
+        systemctl disable ${ACTUAL_SERVICE[mailhog]}
+        systemctl stop ${ACTUAL_SERVICE[mailhog]}
+      fi
+      echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+    ;;
+    *)
+      echo "${RED}Please choose at least a service you would like to disable: elasticsearch, redis, mailhog, php.${NORMAL}"
     ;;
   esac
 }
@@ -1109,18 +1213,30 @@ function GetWebAppInfo {
 }
 
 function TailLogs {
+  local nginxLogs=$(shopt -s nullglob dotglob; echo $HOMEDIR/logs/nginx/*.log)
+  local httpdLogs=$(shopt -s nullglob dotglob; echo $HOMEDIR/logs/apache2/*.log)
+  local fpmLogs=$(shopt -s nullglob dotglob; echo $HOMEDIR/logs/fpm/*.log)
+  local allLogs=$(shopt -s nullglob dotglob; echo $HOMEDIR/logs/*/*.log)
   case "$2" in
     nginx)
-      tail -f $HOMEDIR/logs/nginx/*.log -n200
+      if [[ ${#nginxLogs} -gt 0 ]]; then
+        tail -f ${nginxLogs} -n200
+      fi
       ;;
     apache)
-      tail -f $HOMEDIR/logs/apache2/*.log -n200
+      if [[ ${#httpdLogs} -gt 0 ]]; then
+        tail -f ${httpdLogs} -n200
+      fi
       ;;
     fpm)
-      tail -f $HOMEDIR/logs/fpm/*.log -n200
+      if [[ ${#fpmLogs} -gt 0 ]]; then
+        tail -f ${fpmLogs} -n200
+      fi
       ;;
     all|*)
-      tail -f $HOMEDIR/logs/nginx/*.log $HOMEDIR/logs/apache2/*.log $HOMEDIR/logs/fpm/*.log -n200
+      if [[ ${#allLogs} -gt 0 ]]; then
+        tail -f ${allLogs} -n200
+      fi
       ;;
   esac
 }
