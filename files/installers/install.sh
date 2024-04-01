@@ -119,13 +119,13 @@ function BootstrapInstaller {
 
         PIPEXEC="pip"
 
-        INSTALLPACKAGE+="libmysqlclient20 python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials"
+        INSTALLPACKAGE+="libmysqlclient20 python-pip php70rc php70rc-essentials php71rc php71rc-essentials php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials php83rc php83rc-essentials"
     elif [[ "$OSCODENAME" == 'focal' ]]; then
         add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.4/ubuntu focal main'
 
         PIPEXEC="pip3"
 
-        INSTALLPACKAGE+="libmysqlclient21 python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials dirmngr gnupg libmagic-dev"
+        INSTALLPACKAGE+="libmysqlclient21 python3-pip php72rc php72rc-essentials php73rc php73rc-essentials php74rc php74rc-essentials php80rc php80rc-essentials php81rc php81rc-essentials php82rc php82rc-essentials php83rc php83rc-essentials dirmngr gnupg libmagic-dev"
     elif [[ "$OSCODENAME" == 'jammy' ]]; then
         add-apt-repository 'deb [arch=amd64] https://mirror.rackspace.com/mariadb/repo/10.6/ubuntu jammy main'
 

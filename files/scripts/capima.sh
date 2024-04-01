@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.4.0
+# VERSION: 1.4.1
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -107,7 +107,8 @@ declare -A PHPFPM_CONFDIRS=(
   ["php82"]="/etc/php82rc/fpm.d"
   ["php83"]="/etc/php83rc/fpm.d"
 )
-readonly VERSION="1.4.0"
+readonly VERSION="1.4.1"
+readonly PATCH_VERSION="20240401.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -1221,21 +1222,29 @@ function TailLogs {
     nginx)
       if [[ ${#nginxLogs} -gt 0 ]]; then
         tail -f ${nginxLogs} -n200
+      else
+        exit;
       fi
       ;;
     apache)
       if [[ ${#httpdLogs} -gt 0 ]]; then
         tail -f ${httpdLogs} -n200
+      else
+        exit;
       fi
       ;;
     fpm)
       if [[ ${#fpmLogs} -gt 0 ]]; then
         tail -f ${fpmLogs} -n200
+      else
+        exit;
       fi
       ;;
     all|*)
       if [[ ${#allLogs} -gt 0 ]]; then
         tail -f ${allLogs} -n200
+      else
+        exit;
       fi
       ;;
   esac
@@ -1302,11 +1311,23 @@ function UpdateSelfAndInvoke {
 
     # Overwrite old file with new
     mv $0.tmp $0
+
+    # Patching
+    PatchAndInstall
+
     echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL} 🎉🎉🎉"
     echo ""
 
     exit 0
   fi
+}
+
+function PatchAndInstall {
+  # Patching
+  echo -ne "${GREEN}Patching Capima...${NORMAL}"
+  wget "$CAPIMAURL/files/installers/$PATCH_VERSION.sh" --quiet -O - | bash -
+  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+  echo ""
 }
 
 function Heading {
