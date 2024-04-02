@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.4.3
+# VERSION: 1.4.4
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -60,6 +60,7 @@ SECURED_CONFFILE="$CERTDIR/$APPNAME/openssl.conf"
 SECURED_CRTFILE="$CERTDIR/$APPNAME/fullchain.pem"
 SECURED_CSRFILE="$CERTDIR/$APPNAME/$APPNAME.csr"
 LATEST_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/capima.version)"
+LATEST_PATCH_VERSION="$(curl --silent https://capima.nntoan.com/files/scripts/patch.version)"
 # Read-only variables
 declare -A ACTUAL_SERVICE=(
   ["nginx"]="nginx-rc.service"
@@ -107,7 +108,7 @@ declare -A PHPFPM_CONFDIRS=(
   ["php82"]="/etc/php82rc/fpm.d"
   ["php83"]="/etc/php83rc/fpm.d"
 )
-readonly VERSION="1.4.3"
+readonly VERSION="1.4.4"
 readonly PATCH_VERSION="20240402.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
@@ -1254,12 +1255,30 @@ function ShowCurrentVersion {
   echo ${GREEN}Capima is running on${NORMAL} ${YELLOW}v${VERSION}${NORMAL}.
 }
 
+function ShowCurrentPatchVersion {
+  echo ${GREEN}Current patch version is ${NORMAL} ${YELLOW}v${PATCH_VERSION}${NORMAL}.
+}
+
+
 function ShowLatestVersion {
   echo ${GREEN}The latest version of Capima is${NORMAL} ${YELLOW}v${LATEST_VERSION}${NORMAL}.
 }
 
+function ShowLatestPatchVersion {
+  echo ${GREEN}The latest patch version of Capima is${NORMAL} ${YELLOW}v${LATEST_PATCH_VERSION}${NORMAL}.
+}
+
 function VersionCheck {
   dpkg --compare-versions "$VERSION" "lt" "$LATEST_VERSION"
+  if [[ "$?" -eq 0 ]]; then
+    return 0
+  else
+    return 999
+  fi
+}
+
+function PatchVersionCheck {
+  dpkg --compare-versions "$PATCH_VERSION" "lt" "$LATEST_PATCH_VERSION"
   if [[ "$?" -eq 0 ]]; then
     return 0
   else
@@ -1324,10 +1343,16 @@ function UpdateSelfAndInvoke {
 
 function PatchAndInstall {
   # Patching
-  echo -ne "${GREEN}Patching Capima...${NORMAL}"
-  wget "$CAPIMAURL/files/installers/$PATCH_VERSION.sh" --quiet -O - | bash -s "$PATCH_VERSION"
-  echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
-  echo ""
+  ShowCurrentPatchVersion
+  echo "${GREEN}Checking if on latest version...${NORMAL}"
+  PatchVersionCheck
+  if [[ "$?" -eq 0 ]]; then
+    ShowLatestPatchVersion
+    echo -ne "${GREEN}Patching Capima...${NORMAL}"
+    wget "$CAPIMAURL/files/installers/$PATCH_VERSION.sh" --quiet -O - | bash -s "$PATCH_VERSION"
+    echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+    echo ""
+  fi
 }
 
 function Heading {
