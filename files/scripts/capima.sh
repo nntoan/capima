@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.4.2
+# VERSION: 1.4.3
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -107,8 +107,8 @@ declare -A PHPFPM_CONFDIRS=(
   ["php82"]="/etc/php82rc/fpm.d"
   ["php83"]="/etc/php83rc/fpm.d"
 )
-readonly VERSION="1.4.2"
-readonly PATCH_VERSION="20240401.1"
+readonly VERSION="1.4.3"
+readonly PATCH_VERSION="20240402.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
 readonly PHP_EXTRA_CONFDIR="/etc/php-extra"
@@ -1325,7 +1325,7 @@ function UpdateSelfAndInvoke {
 function PatchAndInstall {
   # Patching
   echo -ne "${GREEN}Patching Capima...${NORMAL}"
-  wget "$CAPIMAURL/files/installers/$PATCH_VERSION.sh" --quiet -O - | bash -
+  wget "$CAPIMAURL/files/installers/$PATCH_VERSION.sh" --quiet -O - | bash -s "$PATCH_VERSION"
   echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
   echo ""
 }
