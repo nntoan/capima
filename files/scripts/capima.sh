@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.4.1
+# VERSION: 1.4.2
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -107,7 +107,7 @@ declare -A PHPFPM_CONFDIRS=(
   ["php82"]="/etc/php82rc/fpm.d"
   ["php83"]="/etc/php83rc/fpm.d"
 )
-readonly VERSION="1.4.1"
+readonly VERSION="1.4.2"
 readonly PATCH_VERSION="20240401.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
@@ -350,15 +350,15 @@ function CreateNewWebApp {
   # Enable FastCGI Cache for webapp
   read -r -p "${BLUE}Do you want to enable Nginx FastCGI Cache for your webapp? [Y/N]${NORMAL} " response
   case "$response" in
-    [nN][oO]|[nN]|*)
-      USE_CAPICACHE="N"
-      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
-      echo ""
-      ;;
     [yY][eE][sS]|[yY])
       USE_CAPICACHE="Y"
       echo -ne "${YELLOW}Your web application will use FastCGI Cache. For more information, please visit: https://runcloud.io/blog/nginx-fastcgi-cache/"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+    [nN][oO]|[nN]|*)
+      USE_CAPICACHE="N"
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
       echo ""
       ;;
   esac
@@ -521,15 +521,15 @@ function UpdateWebApp {
   # Enable FastCGI Cache for webapp
   read -r -p "${BLUE}Do you want to enable Nginx FastCGI Cache for your webapp? [Y/N]${NORMAL} " response
   case "$response" in
-    [nN][oO]|[nN]|*)
-      USE_CAPICACHE="N"
-      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
-      echo ""
-      ;;
     [yY][eE][sS]|[yY])
       USE_CAPICACHE="Y"
       echo -ne "${YELLOW}Your web application will use FastCGI Cache. For more information, please visit: https://runcloud.io/blog/nginx-fastcgi-cache/"
       echo -ne "...${NORMAL} ${GREEN}DONE${NORMAL}"
+      echo ""
+      ;;
+    [nN][oO]|[nN]|*)
+      USE_CAPICACHE="N"
+      echo -ne "${YELLOW}Ok, skipping...${NORMAL}"
       echo ""
       ;;
   esac
