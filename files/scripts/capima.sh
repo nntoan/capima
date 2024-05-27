@@ -3,7 +3,7 @@
 # FILE: /usr/sbin/capima
 # DESCRIPTION: Capima Box Manager - Everything you need to use Capima Box!
 # AUTHOR: Toan Nguyen (htts://github.com/nntoan)
-# VERSION: 1.4.4
+# VERSION: 1.4.5
 # ------------------------------------------------------------------------------
 
 # Use colors, but only if connected to a terminal, and that terminal
@@ -108,7 +108,7 @@ declare -A PHPFPM_CONFDIRS=(
   ["php82"]="/etc/php82rc/fpm.d"
   ["php83"]="/etc/php83rc/fpm.d"
 )
-readonly VERSION="1.4.4"
+readonly VERSION="1.4.5"
 readonly PATCH_VERSION="20240402.1"
 readonly SELF=$(basename "$0")
 readonly UPDATE_BASE="${CAPIMAURL}/files/scripts"
@@ -585,7 +585,7 @@ function UpdateWebApp {
 
   # FastCGI Cache
   if [[ "$USE_CAPICACHE" == "Y" ]]; then
-    if [[ -f "$NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf" ]]; then
+    if [[ ! -f "$NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf" ]]; then
       echo -ne "${YELLOW}Please wait, we are configuring your web application...${NORMAL}"
 
       wget "$CAPIMAURL/templates/nginx/capimacache/headers.d/fcgicache.conf" --quiet -O - | sed "s/APPNAME/$appname/g" > $NGINX_EXTRA_CONFDIR/$appname.headers.capima-hub.conf
