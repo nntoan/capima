@@ -597,6 +597,10 @@ function UpdateWebApp {
       echo -ne "$NGINX_EXTRA_CONFDIR/$appname.location.main-before.capima-hub.conf:" >> $CAPIMA_LOGFILE
       echo -ne "$NGINX_EXTRA_CONFDIR/$appname.location.proxy.capima-hub.conf:" >> $CAPIMA_LOGFILE
 
+      if [[ ! -d "/var/cache/nginx-rc" ]]; then
+        mkdir -p "/var/cache/nginx-rc";
+      fi
+
       echo -ne "${YELLOW}...${NORMAL} ${GREEN}DONE${NORMAL}"
       echo ""
       RestartServices nginx
